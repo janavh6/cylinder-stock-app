@@ -1,0 +1,1273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cylinder Control V1</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0;background:#f5f7fa;color:#17202a}
+header{background:#16324f;color:white;padding:18px 22px}
+h1{margin:0;font-size:24px}.wrap{max-width:1100px;margin:auto;padding:18px}
+nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+button{border:0;border-radius:8px;padding:12px 16px;font-weight:700;cursor:pointer;background:#e3eaf1}
+button.primary{background:#1f7a4d;color:white}.navbtn.active{background:#1f7a4d;color:white}.navbtn:not(.active){background:#e3eaf1;color:#17202a}.danger{background:#b63d3d;color:white}
+.card{background:white;border-radius:12px;padding:18px;margin-bottom:15px;box-shadow:0 2px 8px #00000012}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.big{font-size:28px;font-weight:800}.muted{color:#65717c}
+input,select{width:100%;box-sizing:border-box;padding:11px;border:1px solid #cbd5df;border-radius:7px;margin-top:6px}
+table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px solid #e4e8ec;text-align:left}
+.badge{display:inline-block;padding:4px 8px;border-radius:20px;background:#edf2f6;font-size:12px}
+.row{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.row>*{flex:1;min-width:160px}
+#scanner{border:2px dashed #8aa1b5;border-radius:10px;padding:25px;text-align:center}
+.hidden{display:none}.success{color:#17663d;font-weight:bold}.warning{color:#a15b00;font-weight:bold}
+.dashcard{cursor:pointer;transition:transform .12s,box-shadow .12s}.dashcard:hover{transform:translateY(-2px);box-shadow:0 5px 16px #00000018}.suggestion{padding:10px;border:1px solid #dbe2e8;border-radius:7px;margin:5px 0;cursor:pointer;background:#fafcfe}.suggestion:hover{background:#eef4f8}.smallbtn{padding:7px 10px;font-size:12px}.modalish{background:#fff;border:1px solid #dbe2e8;border-radius:10px;padding:12px;margin-top:10px}</style>
+</head>
+<body>
+<header><div class="wrap"><h1>CYLINDER CONTROL — VERSION 1</h1><div>Prototype based on your existing Excel workflow</div></div></header>
+<div class="wrap">
+<nav>
+<button class="navbtn" data-page="dashboard" onclick="show('dashboard')">Dashboard</button>
+<button class="navbtn" data-page="out" onclick="show('out')">SCAN OUT</button>
+<button class="navbtn" data-page="return" onclick="show('return')">SCAN RETURN</button>
+<button class="navbtn" data-page="receive" onclick="show('receive')">RECEIVING</button>
+<button class="navbtn" data-page="find" onclick="show('find')">Find Cylinder</button>
+<button class="navbtn" data-page="reports" onclick="show('reports')">Reports</button>
+<button class="navbtn" data-page="settings" onclick="show('settings')">Settings</button>
+</nav>
+
+<section id="dashboard" class="page">
+<div class="grid">
+<div class="card dashcard" onclick="openStockWindow('In Stock')"><div class="muted">In Stock</div><div class="big" id="stockCount">0</div><div class="muted">Click to open</div></div>
+<div class="card dashcard" onclick="openStockWindow('With Customer')"><div class="muted">With Customers</div><div class="big" id="customerCount">0</div><div class="muted">Click to open</div></div>
+<div class="card dashcard" onclick="openStockWindow('With Supplier')"><div class="muted">Archived / Supplier</div><div class="big" id="afroxCount">0</div><div class="muted">Click to open</div></div>
+<div class="card dashcard" onclick="show('customers')"><div class="muted">Customers</div><div class="big" id="custCount">0</div><div class="muted">Click to open</div></div>
+</div>
+<div class="card"><h2>Quick actions</h2><button class="primary" onclick="show('out')">SCAN OUT</button>
+<button onclick="show('return')">SCAN RETURN</button><button onclick="show('find')">FIND CYLINDER</button><button onclick="show('reports')">REPORTS</button></div>
+<div class="card"><b>V1 note:</b> Camera barcode scanning is the next integration step. This prototype uses barcode entry so the complete workflow can be tested immediately.</div>
+</section>
+
+<section id="out" class="page hidden">
+<div class="card"><h2>SCAN OUT — customer first</h2>
+<div class="row"><label>Customer<input id="outCustomerSearch" list="customerList" oninput="syncOutCustomer()" placeholder="Start typing customer name..."><datalist id="customerList"></datalist></label>
+<label>Invoice (optional)<input id="outInvoice" placeholder="Leave blank for PENDING"></label></div>
+<div id="scanner"><h3>Scan / enter cylinder barcode</h3>
+<input id="outBarcode" placeholder="710311 + 8 digits" onkeydown="enterAddOut(event)">
+<button class="primary" onclick="addOut()">ADD CYLINDER</button>
+<button onclick="startCameraScan('out')">📷 SCAN WITH CAMERA</button>
+<div id="outCameraMsg" class="muted"></div></div>
+<div class="card"><h3>Current delivery</h3><div id="outList"></div><button class="primary" onclick="completeOut()">COMPLETE SCAN OUT</button></div>
+</div></section>
+
+<section id="return" class="page hidden">
+<div class="card"><h2>SCAN RETURN — MULTIPLE CYLINDERS</h2>
+<p class="muted">Select/scan as many cylinders as you need. The app will queue them and you can complete the whole return at once.</p>
+<input id="returnBarcode" placeholder="710311 + 8 digits" onkeydown="enterReturn(event)">
+<button class="primary" onclick="addReturn()">ADD CYLINDER</button>
+<button onclick="startCameraScan('return')">📷 SCAN WITH CAMERA</button>
+<div id="returnCameraMsg"></div>
+<div id="returnList"></div>
+<button class="primary" onclick="completeReturn()">COMPLETE RETURNS</button>
+<div id="returnMsg"></div></div>
+</section>
+
+<section id="receive" class="page hidden">
+<div class="card"><h2>RECEIVING STOCK</h2>
+<div class="row"><label>Cylinder type<select id="receiveType"></select></label>
+<label>STO / Supplier order number<input id="receiveSto" placeholder="STO (optional)"></label><label>Barcode<input id="receiveBarcode" placeholder="710311 + 8 digits" onkeydown="enterAddReceive(event)"></label></div>
+<button class="primary" onclick="addReceive()">ADD TO RECEIVING</button>
+<button onclick="startCameraScan('receive')">📷 SCAN WITH CAMERA</button>
+<div id="receiveCameraMsg" class="muted"></div>
+<div id="receiveList"></div>
+<button class="primary" onclick="completeReceive()">COMPLETE RECEIVING</button>
+<hr>
+<h3>Bulk Excel import</h3><p class="muted">Required format: Gas Type, Barcode. In the full app this will import .xlsx directly and validate duplicate/unknown codes before adding stock.</p>
+<input type="file" id="excelFile" accept=".xlsx,.xls,.csv">
+</div></section>
+
+<section id="customers" class="page hidden">
+<div class="card"><h2>Customers</h2>
+<div class="row">
+<label style="position:relative">Search customer<input id="customerSearch" oninput="searchCustomers()" placeholder="Start typing a customer name..."></label>
+<button class="primary" onclick="openCustomerForm()">ADD CUSTOMER</button>
+<button onclick="printCustomers()">🖨 PRINT CUSTOMERS</button>
+</div>
+<div id="customerSuggestions"></div>
+<div id="customerTable"></div></div>
+</section>
+
+<section id="customerForm" class="page hidden">
+<div class="card"><h2 id="customerFormTitle">Add Customer</h2>
+<input type="hidden" id="editingCustomer">
+<div class="row"><label>Customer name<input id="formCustomerName"></label><label>Telephone<input id="formCustomerPhone"></label></div>
+<label>Delivery address<input id="formCustomerAddress"></label>
+<div class="row"><button class="primary" onclick="saveCustomerForm()">SAVE CUSTOMER</button><button onclick="show('customers')">CANCEL</button></div>
+</div></section>
+
+<section id="customerDetail" class="page hidden">
+<div class="card"><button onclick="show('customers')">← Back</button> <button onclick="printCustomerDetail()">🖨 PRINT</button><h2 id="customerDetailName"></h2><div id="customerDetailInfo"></div><div id="customerDetailBreakdown"></div><div id="customerDetailCylinders"></div><div id="customerDetailActions"></div></div>
+</section>
+
+<section id="stockWindow" class="page hidden">
+<div class="card"><button onclick="show('dashboard')">← Back to Dashboard</button><button onclick="printStockWindow()">🖨 PRINT</button><h2 id="stockWindowTitle"></h2><div class="row"><input id="stockSearch" placeholder="Search barcode, gas, stock code or STO" oninput="renderLiveStock()"><select id="stockGasFilter" onchange="renderLiveStock()"><option value="">All gas types</option></select></div><div id="stockWindowBody"></div></div>
+</section>
+
+<section id="reports" class="page hidden">
+<div class="card">
+  <h2>REPORTS CENTRE</h2>
+  <p class="muted">All office reports and printable information in one place.</p>
+  <div class="grid">
+    <div class="card dashcard" onclick="show('dailyReport')"><h3>📝 Daily Cylinder Movement</h3><p class="muted">Daily OUT and RETURN movements grouped by gas type and customer.</p><button class="primary">OPEN REPORT</button></div>
+    <div class="card dashcard" onclick="openStockWindow('In Stock')"><h3>📦 Current Stock</h3><p class="muted">Live cylinders currently in stock, with barcode and stock details.</p><button>OPEN REPORT</button></div>
+    <div class="card dashcard" onclick="show('customers')"><h3>👥 Customer Cylinders</h3><p class="muted">Open a customer to see the cylinders currently held and their barcodes.</p><button>OPEN REPORT</button></div>
+    <div class="card dashcard" onclick="show('supplierReport')"><h3>🏭 Supplier Movement</h3><p class="muted">Supplier cylinders sent out and received back.</p><button>OPEN REPORT</button></div>
+    <div class="card dashcard" onclick="show('rental')"><h3>💰 Monthly Rental</h3><p class="muted">20th–19th rental period, customer totals and rental amounts.</p><button>OPEN REPORT</button></div>
+    <div class="card dashcard" onclick="show('pendingInvoices')"><h3>🧾 Pending Invoices</h3><p class="muted">Find completed cylinder OUT movements where the invoice is still pending.</p><button>OPEN REPORT</button></div>
+    <div class="card dashcard" onclick="show('movementReport')"><h3>📊 Movement Report</h3><p class="muted">Search and filter cylinder movements by date, customer, barcode or movement type.</p><button>OPEN REPORT</button></div>
+  </div>
+</div>
+</section>
+
+<section id="supplierReport" class="page hidden">
+<div class="card">
+  <button onclick="show('reports')">← Back to Reports</button>
+  <button onclick="printSupplierMovement()">🖨 PRINT</button>
+  <h2>🏭 Supplier Movement</h2>
+  <p class="muted">Track cylinders sent to the Supplier, received back from the Supplier, and cylinders currently with the Supplier.</p>
+  <div class="row">
+    <label>From date<input id="supplierFromDate" type="date"></label>
+    <label>To date<input id="supplierToDate" type="date"></label>
+    <input id="supplierSearch" placeholder="Search barcode, gas, stock code or STO" oninput="renderSupplierMovement()">
+    <select id="supplierStatusFilter" onchange="renderSupplierMovement()"><option value="">All statuses</option><option value="WITH_SUPPLIER">With Supplier</option><option value="IN_STOCK">In Stock</option><option value="WITH_CUSTOMER">With Customer</option><option value="RETURNED_EMPTY">Returned / Empty</option></select>
+    <button class="primary" onclick="loadSupplierMovement()">LOAD REPORT</button>
+  </div>
+  <div id="supplierReportNotice"></div>
+  <div id="supplierReportResult"><p class="muted">Choose a date range and load the report.</p></div>
+</div>
+</section>
+
+<section id="pendingInvoices" class="page hidden">
+<div class="card">
+  <button onclick="show('reports')">← Back to Reports</button>
+  <button onclick="printPendingInvoices()">🖨 PRINT</button>
+  <h2>Pending Invoices</h2>
+  <p class="muted">Completed Scan Out movements where the invoice has not yet been captured. Add the invoice here later without changing the cylinder movement.</p>
+  <div class="row">
+    <label>From date<input id="pendingFromDate" type="date"></label>
+    <label>To date<input id="pendingToDate" type="date"></label>
+    <label>Customer<input id="pendingCustomer" list="customerList" placeholder="All customers" oninput="renderPendingInvoices()"></label>
+    <input id="pendingSearch" placeholder="Search customer or barcode" oninput="renderPendingInvoices()">
+    <button class="primary" onclick="loadPendingInvoices()">LOAD PENDING</button>
+  </div>
+  <div id="pendingInvoicesNotice"></div>
+  <div id="pendingInvoicesResult"><p class="muted">Load the report to see outstanding invoices.</p></div>
+</div>
+</section>
+
+<section id="movementReport" class="page hidden">
+<div class="card">
+  <button onclick="show('reports')">← Back to Reports</button>
+  <button onclick="printMovementReport()">🖨 PRINT</button>
+  <h2>📊 Movement Report</h2>
+  <p class="muted">Search the complete live movement history by date, customer, barcode, gas/type or movement.</p>
+  <div class="row">
+    <label>From date<input id="movementFromDate" type="date"></label>
+    <label>To date<input id="movementToDate" type="date"></label>
+    <label>Customer<input id="movementCustomer" list="customerList" placeholder="All customers" oninput="renderMovementReport()"></label>
+    <input id="movementSearch" placeholder="Search barcode, gas, stock code, STO or invoice" oninput="renderMovementReport()">
+    <select id="movementTypeFilter" onchange="renderMovementReport()"><option value="">All movements</option><option value="SCAN_OUT">Scan Out</option><option value="SCAN_RETURN">Scan Return</option><option value="RECEIVED_FROM_AFROX">Received from Supplier</option><option value="SENT_TO_AFROX">Sent to Supplier</option></select>
+    <button class="primary" onclick="loadMovementReport()">LOAD REPORT</button>
+  </div>
+  <div id="movementReportNotice"></div>
+  <div id="movementReportResult"><p class="muted">Choose filters and load the report.</p></div>
+</div>
+</section>
+
+<section id="settings" class="page hidden">
+<div class="card"><h2>Settings</h2>
+<h3>Cylinder Types / Stock Codes</h3>
+<p class="muted">These are protected behind Settings so they are not accidentally changed during normal stock work.</p>
+<div class="row"><input id="typeCode" placeholder="Stock code e.g. 1-QD"><input id="typeGas" placeholder="Gas type e.g. OXY"><input id="typeDesc" placeholder="Description"><button class="primary" onclick="addType()">ADD TYPE</button></div>
+<div id="typeTable"></div>
+<hr>
+<div class="card">
+<h3>🔄 19 October 2026 — Go-Live Stock Take</h3>
+<p class="muted">This is the controlled reset point for the new live system. It does <b>not</b> delete previous history. You will scan the cylinders physically at your company and then scan the cylinders physically held by each customer.</p>
+<button class="primary" onclick="show('goLiveReset')">OPEN GO-LIVE STOCK TAKE</button>
+</div>
+</div></section>
+
+<section id="goLiveReset" class="page hidden">
+<div class="card">
+<button onclick="show('settings')">← Back to Settings</button>
+<h2>🔄 GO-LIVE STOCK TAKE — 19 OCTOBER 2026</h2>
+<p><b>Official reset date:</b> 19 October 2026</p>
+<p class="muted">Use this once, after physically checking the cylinders. Previous movements remain in the history. The reset establishes the new opening position for stock and Rental.</p>
+<div id="goLiveResetStatus"></div>
+
+<div class="card">
+<h3>1. 📦 Company Stock</h3>
+<p class="muted">Scan every cylinder physically in your warehouse on 19 October.</p>
+<input id="goLiveCompanyBarcode" placeholder="710311 + 8 digits" onkeydown="enterGoLiveCompany(event)">
+<button class="primary" onclick="addGoLiveCompany()">ADD COMPANY CYLINDER</button>
+<button onclick="startCameraScan('goLiveCompany')">📷 SCAN WITH CAMERA</button>
+<div id="goLiveCompanyCameraMsg" class="muted"></div>
+<div id="goLiveCompanyList"></div>
+</div>
+
+<div class="card">
+<h3>2. 👥 Customer Opening Stock</h3>
+<p class="muted">Select a customer, then scan every cylinder physically held by that customer on 19 October.</p>
+<label>Customer<select id="goLiveCustomer"></select></label>
+<input id="goLiveCustomerBarcode" placeholder="710311 + 8 digits" onkeydown="enterGoLiveCustomer(event)">
+<button class="primary" onclick="addGoLiveCustomer()">ADD CUSTOMER CYLINDER</button>
+<button onclick="startCameraScan('goLiveCustomer')">📷 SCAN WITH CAMERA</button>
+<div id="goLiveCustomerCameraMsg" class="muted"></div>
+<div id="goLiveCustomerList"></div>
+</div>
+
+<div class="card">
+<h3>3. 🧮 Unbarcoded Older Stock</h3>
+<p class="muted">For older cylinders that are physically in your company but still have no barcode. Enter the quantity by cylinder type. These are kept separate from barcode stock.</p>
+<div id="goLiveUnbarcodedInputs"></div>
+</div>
+
+<div class="card">
+<h3>4. Review & Confirm</h3>
+<p class="muted">Before confirming, physically compare the totals with your stock count and customer count. This action is permanent for the 19 October reset date.</p>
+<div id="goLiveReview"></div>
+<label>Reset note (optional)<input id="goLiveNotes" placeholder="e.g. Physical stock take completed 19 October 2026"></label>
+<button class="primary" onclick="confirmGoLiveReset()">CONFIRM 19 OCTOBER GO-LIVE RESET</button>
+</div>
+</div>
+</section>
+
+<section id="find" class="page hidden">
+<div class="card"><h2>Find Cylinder</h2><input id="findBarcode" placeholder="710311 + 8 digits" onkeydown="enterFind(event)"><button class="primary" onclick="findCylinder()">SEARCH</button> <button onclick="startCameraScan('find')">📷 SCAN WITH CAMERA</button><div id="findCameraMsg"></div><div id="findResult"></div></div>
+</section>
+
+<section id="rental" class="page hidden">
+<div class="card"><h2>Monthly Rental</h2>
+<p>Rental period: <b>20th of previous month → 19th of current month</b>.</p>
+<div class="row">
+<label>Period ending<input id="rentalEndDate" type="date"></label>
+<label>Rental rate per cylinder<input id="rentalRate" type="number" step="0.01" min="0" value="0"></label>
+</div>
+<div class="row">
+<label>Customer<input id="rentalCustomerSearch" list="customerList" placeholder="Start typing customer name..."></label>
+<label style="display:flex;align-items:center;gap:8px;padding-bottom:8px"><input style="width:auto;margin:0" type="checkbox" id="rentalAll" onchange="toggleRentalSelection()"> Show all customers on one page</label>
+</div>
+<div class="row">
+<button class="primary" onclick="rentalCalc()">CALCULATE RENTAL</button>
+<button onclick="printRental()">🖨 PRINT RENTAL</button>
+</div>
+<div id="rentalNotice"></div><div id="rentalResult"></div></div>
+</section>
+
+<section id="dailyReport" class="page hidden">
+<div class="card"><h2>Daily Cylinder Movement Report</h2>
+<p class="muted">Shows all cylinder movements recorded for the selected day — including cylinders scanned out, returned, received from Supplier and sent to Supplier.</p>
+<div class="row">
+<label>Report date<input id="dailyReportDate" type="date"></label>
+<button class="primary" onclick="loadDailyReport()">LOAD REPORT</button>
+<button onclick="printDailyReport()">🖨 PRINT DAILY REPORT</button>
+</div>
+<div id="dailyReportNotice"></div>
+<div id="dailyReportResult"><p class="muted">Choose a date and load the report.</p></div>
+</div>
+</section>
+</div>
+
+<script>
+/* CYLINDER APP — LIVE SUPABASE CONFIGURATION */
+window.CYLINDER_SUPABASE = {
+  url: "https://cfgbskcdhdupstlgdbwy.supabase.co",
+  publishableKey: "sb_publishable_9FdVHMqjVYN5mHc4MlaJIQ_KAqVTuxH",
+  movementFunction: "cylinder-movement",
+  legacyAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNmZ2Jza2NkaGR1cHN0bGdkYnd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3MTM3MTMsImV4cCI6MjEwNTI4OTcxM30.i9HiUiJiMybnyGHJxnn0UH-GbgzatKp2LPs5NP9I9_0"
+};
+</script>
+
+<script>
+const seed={"customers": ["NEXOR RUBBER", "VLG ENTERPRISES", "AVAX ENGINEERING", "LONGKEN", "RTB MULTI TRANSPORT", "GALVINIZERS", "VENWOOD AND BAKER - 221003553", "FORCHRON", "BACANG", "LECHWE", "MULTOTEC SERVICE", "RTB GALVINIZERS", "MTE", "SULAWESI", "OCEAN BASKET", "ROCOMAMA - 221014594+221016422", "LUSH PRIVATE LODGE - 221013467+221014982", "VENWOOD AND BAKER - 221012732", "CILLIERS", "RMT", "SUWENDA", "MIDNIGHT SPORT BAR", "KAIZEN INSTI VALTERRA", "GIBTECH MINING", "SCRAPCYCLE", "NASCIMAX", "ARM ANDALUSITE", "ALL ABOUT STEEL", "ALLIED CRANE HIRE", "ANANENG", "CONVEY 4 AFRICA", "DELFORNO", "DISTRILIQ", "GOLDEN TROPIC", "HFC", "INTER AFRICA ENGIN", "JAKKELSDANS", "JBEK STEEL MEGA TRAIL", "JOHAN", "JRT MINING SUPPLIES", "KEYSTONE MILL", "KM INDUSTRIAL", "LAUDRIE ENGIN", "LECHWE MINING", "LINHLEKO PROJECTS", "MVT MINING", "NEXOR", "PANEL B UNLI", "PHEK ENGI (REK)", "PLAT SANDBLASTING", "PREDICT SUPP", "RAK ROCK DRILL", "RCS", "RICHMAN", "RTB GALVANIZERS", "SITONA MINING", "SUWENDA TRADING", "TETRACON", "TWA", "WAG N BIETJIE"], "cylinders": [{"barcode": "01009296", "gas": "OXY", "customer": "NEXOR RUBBER", "invoice": "I27756", "status": "With Customer"}, {"barcode": "02213187", "gas": "ASH 5", "customer": "NEXOR RUBBER", "invoice": "I27756", "status": "With Customer"}, {"barcode": "02488346", "gas": "ACET DA", "customer": "NEXOR RUBBER", "invoice": "I27756", "status": "With Customer"}, {"barcode": "02648637", "gas": "OXY", "customer": "NEXOR RUBBER", "invoice": "I27756", "status": "With Customer"}, {"barcode": "01346925", "gas": "ASH 5", "customer": "NEXOR RUBBER", "invoice": "I27756", "status": "With Customer"}, {"barcode": "02615315", "gas": "ACET DA", "customer": "NEXOR RUBBER", "invoice": "I27756", "status": "With Customer"}, {"barcode": "02326525", "gas": "OXY", "customer": "VLG ENTERPRISES", "invoice": "I27763", "status": "With Customer"}, {"barcode": "02530410", "gas": "OXY", "customer": "VLG ENTERPRISES", "invoice": "I27763", "status": "With Customer"}, {"barcode": "01449541", "gas": "OXY", "customer": "AVAX ENGINEERING", "invoice": "I27751", "status": "With Customer"}, {"barcode": "02667902", "gas": "OXY", "customer": "LONGKEN", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02196338", "gas": "ACET DA", "customer": "LONGKEN", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02364903", "gas": "HP ARGON", "customer": "LONGKEN", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "01836797", "gas": "OXY", "customer": "LONGKEN", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02450777", "gas": "ACET DA", "customer": "LONGKEN", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "01759702", "gas": "HP ARGON", "customer": "LONGKEN", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02326777", "gas": "OXY", "customer": "LONGKEN", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "01573780", "gas": "ACET DA", "customer": "LONGKEN", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "00899794", "gas": "HP ARGON", "customer": "LONGKEN", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02616418", "gas": "OXY", "customer": "LONGKEN", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02226685", "gas": "HP ARGON", "customer": "LONGKEN", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02500642", "gas": "OXY", "customer": "LONGKEN", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "01659972", "gas": "HP ARGON", "customer": "LONGKEN", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "014428649", "gas": "OXY", "customer": "LONGKEN", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02553837", "gas": "OXY", "customer": "LONGKEN", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "01650685", "gas": "OXY", "customer": "RTB MULTI TRANSPORT", "invoice": "I27766", "status": "With Customer"}, {"barcode": "2124054", "gas": "OXY", "customer": "RTB MULTI TRANSPORT", "invoice": "I27766", "status": "With Customer"}, {"barcode": "02316406", "gas": "OXY", "customer": "RTB MULTI TRANSPORT", "invoice": "I27766", "status": "With Customer"}, {"barcode": "00985090", "gas": "OXY", "customer": "RTB MULTI TRANSPORT", "invoice": "I27766", "status": "With Customer"}, {"barcode": "02497591", "gas": "OXY", "customer": "RTB MULTI TRANSPORT", "invoice": "I27766", "status": "With Customer"}, {"barcode": "02642461", "gas": "OXY", "customer": "GALVINIZERS", "invoice": "I27767", "status": "With Customer"}, {"barcode": "01755271", "gas": "OXY", "customer": "GALVINIZERS", "invoice": "I27767", "status": "With Customer"}, {"barcode": "02458752", "gas": "OXY", "customer": "GALVINIZERS", "invoice": "I27767", "status": "With Customer"}, {"barcode": "02650479", "gas": "OXY", "customer": "GALVINIZERS", "invoice": "I27767", "status": "With Customer"}, {"barcode": "02311770", "gas": "OXY", "customer": "GALVINIZERS", "invoice": "I27767", "status": "With Customer"}, {"barcode": "02530123", "gas": "OXY", "customer": "GALVINIZERS", "invoice": "I27767", "status": "With Customer"}, {"barcode": "02485804", "gas": "ASH 5", "customer": "FORCHRON", "invoice": "I27771", "status": "With Customer"}, {"barcode": "02360017", "gas": "ASH 5", "customer": "FORCHRON", "invoice": "I27771", "status": "With Customer"}, {"barcode": "02663267", "gas": "ASH 5", "customer": "FORCHRON", "invoice": "I27771", "status": "With Customer"}, {"barcode": "02177710", "gas": "ASH 5", "customer": "FORCHRON", "invoice": "I27771", "status": "With Customer"}, {"barcode": "02651560", "gas": "100 (S)", "customer": "BACANG", "invoice": "I27787", "status": "With Customer"}, {"barcode": "02687359", "gas": "OTHER", "customer": "BACANG", "invoice": "I27787", "status": "With Customer"}, {"barcode": "01829385", "gas": "100 (S)", "customer": "BACANG", "invoice": "I27787", "status": "With Customer"}, {"barcode": "02142541", "gas": "OXY", "customer": "LECHWE", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "01514554", "gas": "ASH 5", "customer": "LECHWE", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "01487048", "gas": "ACET DA", "customer": "LECHWE", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02344425", "gas": "OXY", "customer": "LECHWE", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "01774863", "gas": "ASH 5", "customer": "LECHWE", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "01798424", "gas": "ACET DA", "customer": "LECHWE", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02480021", "gas": "OXY", "customer": "LECHWE", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02196630", "gas": "ASH 5", "customer": "LECHWE", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02567204", "gas": "OXY", "customer": "LECHWE", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02314778", "gas": "ASH 5", "customer": "LECHWE", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02140071", "gas": "OXY", "customer": "LECHWE", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02542693", "gas": "ASH 5", "customer": "LECHWE", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02281230", "gas": "OXY", "customer": "LECHWE", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02164582", "gas": "ASH 5", "customer": "LECHWE", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02329874", "gas": "OXY", "customer": "LECHWE", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02023109", "gas": "ASH 5", "customer": "LECHWE", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02422115", "gas": "OXY", "customer": "LECHWE", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02672732", "gas": "ASH 5", "customer": "LECHWE", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02567103", "gas": "OXY", "customer": "LECHWE", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02671531", "gas": "OXY", "customer": "LECHWE", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02588903", "gas": "OXY", "customer": "VLG ENTERPRISES", "invoice": "I27796", "status": "With Customer"}, {"barcode": "02646951", "gas": "OXY", "customer": "VLG ENTERPRISES", "invoice": "I27796", "status": "With Customer"}, {"barcode": "02373653", "gas": "OXY", "customer": "MULTOTEC SERVICE", "invoice": "I27817", "status": "With Customer"}, {"barcode": "01684376", "gas": "ACET DA", "customer": "MULTOTEC SERVICE", "invoice": "I27817", "status": "With Customer"}, {"barcode": "02407168", "gas": "OXY", "customer": "RTB GALVINIZERS", "invoice": "I27820", "status": "With Customer"}, {"barcode": "01788505", "gas": "OXY", "customer": "RTB GALVINIZERS", "invoice": "I27820", "status": "With Customer"}, {"barcode": "02551539", "gas": "OXY", "customer": "RTB GALVINIZERS", "invoice": "I27820", "status": "With Customer"}, {"barcode": "02536770", "gas": "OXY", "customer": "RTB GALVINIZERS", "invoice": "I27820", "status": "With Customer"}, {"barcode": "02290894", "gas": "OXY", "customer": "RTB GALVINIZERS", "invoice": "I27820", "status": "With Customer"}, {"barcode": "01670725", "gas": "OXY", "customer": "RTB GALVINIZERS", "invoice": "I27820", "status": "With Customer"}, {"barcode": "01547279", "gas": "OXY", "customer": "RTB GALVINIZERS", "invoice": "I27820", "status": "With Customer"}, {"barcode": "02159722", "gas": "OXY", "customer": "RTB GALVINIZERS", "invoice": "I27820", "status": "With Customer"}, {"barcode": "00880949", "gas": "OXY", "customer": "RTB GALVINIZERS", "invoice": "I27820", "status": "With Customer"}, {"barcode": "01677444", "gas": "OXY", "customer": "RTB GALVINIZERS", "invoice": "I27820", "status": "With Customer"}, {"barcode": "01200318", "gas": "ASH 5", "customer": "SULAWESI", "invoice": "I27852", "status": "With Customer"}, {"barcode": "01185813", "gas": "OTHER", "customer": "OCEAN BASKET", "invoice": "I27856", "status": "With Customer"}, {"barcode": "02687639", "gas": "100 (S)", "customer": "ROCOMAMA - 221014594+221016422", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02251571", "gas": "100 (S)", "customer": "LUSH PRIVATE LODGE - 221013467+221014982", "invoice": "P/NET", "status": "With Customer"}, {"barcode": "02301704", "gas": "OXY", "customer": "CILLIERS", "invoice": "I27865", "status": "With Customer"}, {"barcode": "02170656", "gas": "ASH 5", "customer": "CILLIERS", "invoice": "I27865", "status": "With Customer"}, {"barcode": "02387352", "gas": "OXY", "customer": "CILLIERS", "invoice": "I27865", "status": "With Customer"}, {"barcode": "01796912", "gas": "ASH 5", "customer": "CILLIERS", "invoice": "I27865", "status": "With Customer"}, {"barcode": "01841485", "gas": "ASH 5", "customer": "CILLIERS", "invoice": "I27865", "status": "With Customer"}, {"barcode": "01749165", "gas": "OXY", "customer": "RMT", "invoice": "I27867", "status": "With Customer"}, {"barcode": "02685742", "gas": "OXY", "customer": "RMT", "invoice": "I27867", "status": "With Customer"}, {"barcode": "02685743", "gas": "OXY", "customer": "RMT", "invoice": "I27867", "status": "With Customer"}, {"barcode": "02642576", "gas": "OXY", "customer": "RMT", "invoice": "I27867", "status": "With Customer"}, {"barcode": "02543649", "gas": "OXY", "customer": "RMT", "invoice": "I27867", "status": "With Customer"}, {"barcode": "02624344", "gas": "ASH 5", "customer": "FORCHRON", "invoice": "I27873", "status": "With Customer"}, {"barcode": "02265783", "gas": "ASH 5", "customer": "FORCHRON", "invoice": "I27873", "status": "With Customer"}, {"barcode": "02233914", "gas": "ASH 5", "customer": "FORCHRON", "invoice": "I27873", "status": "With Customer"}, {"barcode": "02446568", "gas": "OXY", "customer": "SUWENDA", "invoice": "I27869", "status": "With Customer"}, {"barcode": "02634750", "gas": "ASH 5", "customer": "SUWENDA", "invoice": "I27869", "status": "With Customer"}, {"barcode": "02615750", "gas": "ASH 5", "customer": "SUWENDA", "invoice": "I27869", "status": "With Customer"}, {"barcode": "01189828", "gas": "100 (S)", "customer": "MIDNIGHT SPORT BAR", "invoice": "I27872", "status": "With Customer"}, {"barcode": "02643975", "gas": "OTHER", "customer": "KAIZEN INSTI VALTERRA", "invoice": "I27882", "status": "With Customer"}, {"barcode": "02643979", "gas": "OTHER", "customer": "KAIZEN INSTI VALTERRA", "invoice": "I27882", "status": "With Customer"}, {"barcode": "01708830", "gas": "OXY", "customer": "GIBTECH MINING", "invoice": "I27900", "status": "With Customer"}, {"barcode": "02194623", "gas": "ASH 5", "customer": "GIBTECH MINING", "invoice": "I27900", "status": "With Customer"}, {"barcode": "01933069", "gas": "ACET DA", "customer": "GIBTECH MINING", "invoice": "I27900", "status": "With Customer"}, {"barcode": "02216940", "gas": "OXY", "customer": "GIBTECH MINING", "invoice": "I27900", "status": "With Customer"}, {"barcode": "02512428", "gas": "ASH 5", "customer": "GIBTECH MINING", "invoice": "I27900", "status": "With Customer"}, {"barcode": "02262623", "gas": "OXY", "customer": "SCRAPCYCLE", "invoice": "I27901", "status": "With Customer"}, {"barcode": "02326411", "gas": "OXY", "customer": "SCRAPCYCLE", "invoice": "I27901", "status": "With Customer"}, {"barcode": "02062169", "gas": "OXY", "customer": "SCRAPCYCLE", "invoice": "I27901", "status": "With Customer"}, {"barcode": "02480387", "gas": "OXY", "customer": "SCRAPCYCLE", "invoice": "I27901", "status": "With Customer"}, {"barcode": "02453644", "gas": "OXY", "customer": "SCRAPCYCLE", "invoice": "I27901", "status": "With Customer"}, {"barcode": "02543764", "gas": "OXY", "customer": "RTB GALVINIZERS", "invoice": "I27917", "status": "With Customer"}, {"barcode": "01308914", "gas": "OXY", "customer": "RTB GALVINIZERS", "invoice": "I27917", "status": "With Customer"}, {"barcode": "02592378", "gas": "OXY", "customer": "RTB GALVINIZERS", "invoice": "I27917", "status": "With Customer"}, {"barcode": "02442510", "gas": "OXY", "customer": "RTB GALVINIZERS", "invoice": "I27917", "status": "With Customer"}, {"barcode": "02672685", "gas": "ASH 5", "customer": "NASCIMAX", "invoice": "I27922", "status": "With Customer"}, {"barcode": "02172135", "gas": "ASH 5", "customer": "NASCIMAX", "invoice": "I27922", "status": "With Customer"}, {"barcode": "02646723", "gas": "OXY", "customer": "SCRAPCYCLE", "invoice": "I27937", "status": "With Customer"}, {"barcode": "02672404", "gas": "OXY", "customer": "SCRAPCYCLE", "invoice": "I27937", "status": "With Customer"}, {"barcode": "02277709", "gas": "OXY", "customer": "SCRAPCYCLE", "invoice": "I27937", "status": "With Customer"}, {"barcode": "02656462", "gas": "OXY", "customer": "SCRAPCYCLE", "invoice": "I27937", "status": "With Customer"}, {"barcode": "02128862", "gas": "OXY", "customer": "SCRAPCYCLE", "invoice": "I27937", "status": "With Customer"}], "types": [{"code": "1-QD", "gas": "OXY", "description": "17kg Oxygen Tec cylinder"}, {"code": "24-SE", "gas": "ASH 5", "description": "24kg Argon Ash 5 cylinder"}]};
+let db=JSON.parse(localStorage.getItem('cylDB')||JSON.stringify(seed));
+db.customerInfo=db.customerInfo||{}; db.customerMeta=db.customerMeta||{};
+db.types=(db.types||[]).map(t=>({...t,archived:!!t.archived}));
+// Central movement ledger: every completed cylinder movement is stored here.
+// The cylinder.history array is retained for compatibility with the existing UI,
+// while db.movements becomes the source of truth for future reports/rental.
+db.movements=Array.isArray(db.movements)?db.movements:[];
+db.schemaVersion=Number(db.schemaVersion||1);
+function ensureMovementLedger(){
+  if(db.movements.length===0){
+    const now=new Date().toISOString();
+    db.cylinders.forEach(c=>{
+      c.history=Array.isArray(c.history)?c.history:[];
+      const opening={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random()),date:now,action:'OPENING BALANCE',barcode:c.barcode,customer:c.customer||'',type:c.type||'',gas:c.gas||'',status:c.status,source:'MIGRATED'};
+      db.movements.push(opening);
+      if(!c.history.length)c.history.push(opening);
+    });
+    db.schemaVersion=2;
+    localStorage.setItem('cylDB',JSON.stringify(db));
+  }
+}
+function recordMovement(c,action,extra={}){
+  const movement={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random()),date:new Date().toISOString(),barcode:c.barcode,action,customer:c.customer||'',type:c.type||'',gas:c.gas||'',status:c.status,source:extra.source||'MANUAL',invoice:extra.invoice||'',notes:extra.notes||''};
+  db.movements.push(movement);
+  c.history=Array.isArray(c.history)?c.history:[];
+  c.history.push(movement);
+  return movement;
+}
+ensureMovementLedger();
+let outSession=[], receiveSession=[], cameraStream=null, cameraMode='';
+const BARCODE_RE=/^710311\d{8}$/;
+function save(){localStorage.setItem('cylDB',JSON.stringify(db));refresh();}
+function show(id){stopCameraScan();document.querySelectorAll('.page').forEach(x=>x.classList.add('hidden'));document.getElementById(id).classList.remove('hidden');document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.page===id));refresh();if(id==='goLiveReset')initGoLiveReset();}
+function opts(id,arr){document.getElementById(id).innerHTML=arr.map(x=>`<option>${esc(x)}</option>`).join('')}
+function esc(x){return String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function validBarcode(bc){return BARCODE_RE.test(bc)}
+function barcodeError(bc){return `<p class="warning">Barcode not valid. It must start with <b>710311</b> and have 8 digits after it.</p>`}
+function activeCustomers(){return db.customers.filter(c=>!(db.customerMeta[c]&&db.customerMeta[c].archived)).sort((a,b)=>a.localeCompare(b))}
+function customerHasHistory(name){return db.cylinders.some(c=>c.customer===name || (c.history||[]).some(h=>h.customer===name))}
+function currentCustomerCount(name){return db.cylinders.filter(c=>c.status==='With Customer'&&c.customer===name).length}
+async function refresh(){
+  // Keep the existing V6 local UI immediately responsive.
+  document.getElementById('stockCount').textContent=db.cylinders.filter(c=>c.status==='In Stock').length;
+  document.getElementById('customerCount').textContent=db.cylinders.filter(c=>c.status==='With Customer').length;
+  document.getElementById('afroxCount').textContent=db.cylinders.filter(c=>c.status==='With Afrox').length;
+  document.getElementById('custCount').textContent=activeCustomers().length;
+
+  const localCustomers=activeCustomers();
+  document.getElementById('customerList').innerHTML=localCustomers.map(c=>`<option value="${esc(c)}">`).join('');
+
+  const activeTypes=db.types.filter(t=>!t.archived);
+  opts('receiveType',activeTypes.map(t=>t.code+' — '+t.description));
+
+  try{
+    if(window.CylinderLive){
+      const [customers,cylinders,types]=await Promise.all([
+        CylinderLive.customers(),
+        CylinderLive.allCylinders(),
+        CylinderLive.cylinderTypes()
+      ]);
+
+      const q=(document.getElementById('customerSearch')?.value||'').trim().toLowerCase();
+      const typeMap=new Map(types.map(t=>[t.id,t]));
+
+      const rows=customers
+        .slice()
+        .sort((a,b)=>a.name.localeCompare(b.name))
+        .filter(c=>!q||c.name.toLowerCase().includes(q))
+        .map(c=>{
+          const held=cylinders.filter(x=>x.status==='WITH_CUSTOMER' && x.customer_id===c.id && x.active!==false);
+          return `<tr>
+            <td><b>${esc(c.name)}</b></td>
+            <td>${held.length}</td>
+            <td>
+              <button type="button" class="smallbtn customer-action" data-action="open" data-customer="${esc(c.name)}">OPEN</button>
+              <button type="button" class="smallbtn customer-action" data-action="edit" data-customer="${esc(c.name)}">EDIT</button>
+              ${held.length===0?`<button type="button" class="smallbtn customer-action" data-action="archive" data-customer="${esc(c.name)}">ARCHIVE</button>`:''}
+            </td>
+          </tr>`;
+        }).join('');
+
+      document.getElementById('customerTable').innerHTML=
+        '<table><tr><th>Customer</th><th>Current cylinders</th><th>Action</th></tr>'+
+        (rows||'<tr><td colspan="3">No customers found.</td></tr>')+
+        '</table>';
+
+      // Keep the local type/settings table exactly as before.
+      document.getElementById('typeTable').innerHTML=
+        '<table><tr><th>Code</th><th>Gas</th><th>Description</th><th>Status</th><th>Action</th></tr>'+
+        db.types.map(t=>`<tr><td>${esc(t.code)}</td><td>${esc(t.gas)}</td><td>${esc(t.description)}</td><td>${t.archived?'ARCHIVED':'ACTIVE'}</td><td>${t.archived?`<button class="smallbtn" onclick="restoreType(${JSON.stringify(t.code)})">RESTORE</button>`:`<button class="smallbtn" onclick="editType(${JSON.stringify(t.code)})">EDIT</button> <button class="smallbtn" onclick="archiveOrDeleteType(${JSON.stringify(t.code)})">${typeHasHistory(t.code)?'ARCHIVE':'DELETE'}</button>`}</td></tr>`).join('')+
+        '</table>';
+
+      renderOut();
+      renderReceive();
+      return;
+    }
+  }catch(e){
+    // If live customer loading fails, retain the working V6 local list.
+  }
+
+  const q=(document.getElementById('customerSearch')?.value||'').trim().toLowerCase();
+  const rows=localCustomers
+    .slice()
+    .sort((a,b)=>a.localeCompare(b))
+    .filter(c=>!q||c.toLowerCase().includes(q))
+    .map(c=>{
+      const n=currentCustomerCount(c), meta=db.customerMeta[c]||{};
+      const archived=!!meta.archived;
+      return `<tr><td><b>${esc(c)}</b>${archived?' <span class="badge">ARCHIVED</span>':''}</td><td>${n}</td><td>
+        <button class="smallbtn" onclick="openCustomerDetail(${JSON.stringify(c)})">OPEN</button>
+        ${!archived?`<button class="smallbtn" onclick="editCustomer(${JSON.stringify(c)})">EDIT</button>`:''}
+        ${archived?`<button class="smallbtn" onclick="restoreCustomer(${JSON.stringify(c)})">RESTORE</button>`:''}
+        ${!archived&&n===0?`<button class="smallbtn" onclick="archiveCustomer(${JSON.stringify(c)})">ARCHIVE</button>`:''}
+        ${!archived&&n===0&&!customerHasHistory(c)?`<button class="smallbtn danger" onclick="deleteCustomer(${JSON.stringify(c)})">DELETE</button>`:''}
+      </td></tr>`;
+    }).join('');
+
+  document.getElementById('customerTable').innerHTML=
+    '<table><tr><th>Customer</th><th>Current cylinders</th><th>Action</th></tr>'+rows+'</table>';
+
+  document.getElementById('typeTable').innerHTML=
+    '<table><tr><th>Code</th><th>Gas</th><th>Description</th><th>Status</th><th>Action</th></tr>'+
+    db.types.map(t=>`<tr><td>${esc(t.code)}</td><td>${esc(t.gas)}</td><td>${esc(t.description)}</td><td>${t.archived?'ARCHIVED':'ACTIVE'}</td><td>${t.archived?`<button class="smallbtn" onclick="restoreType(${JSON.stringify(t.code)})">RESTORE</button>`:`<button class="smallbtn" onclick="editType(${JSON.stringify(t.code)})">EDIT</button> <button class="smallbtn" onclick="archiveOrDeleteType(${JSON.stringify(t.code)})">${typeHasHistory(t.code)?'ARCHIVE':'DELETE'}</button>`}</td></tr>`).join('')+
+    '</table>';
+
+  renderOut();
+  renderReceive();
+}
+function openCustomerForm(name=''){document.getElementById('editingCustomer').value=name;document.getElementById('customerFormTitle').textContent=name?'Edit Customer':'Add Customer';document.getElementById('formCustomerName').value=name;const d=db.customerInfo?.[name]||{};document.getElementById('formCustomerPhone').value=d.phone||'';document.getElementById('formCustomerAddress').value=d.address||'';show('customerForm')}
+function saveCustomerForm(){const old=document.getElementById('editingCustomer').value,name=document.getElementById('formCustomerName').value.trim();if(!name){alert('Customer name is required.');return}db.customerInfo=db.customerInfo||{};db.customerMeta=db.customerMeta||{};const phone=document.getElementById('formCustomerPhone').value.trim(),address=document.getElementById('formCustomerAddress').value.trim();if(old&&old!==name){if(db.customers.includes(name)){alert('A customer with that name already exists.');return}db.customers=db.customers.filter(x=>x!==old);db.customers.push(name);db.cylinders.forEach(c=>{if(c.customer===old)c.customer=name;(c.history||[]).forEach(h=>{if(h.customer===old)h.customer=name})});if(db.customerInfo[old]){db.customerInfo[name]=db.customerInfo[old];delete db.customerInfo[old]}if(db.customerMeta[old]){db.customerMeta[name]=db.customerMeta[old];delete db.customerMeta[old]}}else if(!old&&!db.customers.includes(name))db.customers.push(name);db.customerInfo[name]={phone,address};save();show('customers')}
+function editCustomer(name){openCustomerForm(name)}
+function archiveCustomer(name){if(currentCustomerCount(name)>0){alert('This customer still has cylinders. Return all cylinders before archiving.');return}if(confirm('Archive '+name+'? They will be hidden from normal customer selection but their history will stay safe.')){db.customerMeta[name]={...(db.customerMeta[name]||{}),archived:true};save()}}
+function restoreCustomer(name){db.customerMeta[name]={...(db.customerMeta[name]||{}),archived:false};save()}
+function deleteCustomer(name){if(currentCustomerCount(name)>0||customerHasHistory(name)){alert('This customer has cylinder history and cannot be deleted. Archive them instead.');return}if(confirm('Delete '+name+' permanently?')){db.customers=db.customers.filter(x=>x!==name);delete db.customerInfo[name];delete db.customerMeta[name];save()}}
+async function openCustomerDetail(name){
+  if(window.CylinderLive){
+    try{
+      const [customers,cylinders,types]=await Promise.all([
+        CylinderLive.customers(),
+        CylinderLive.allCylinders(),
+        CylinderLive.cylinderTypes()
+      ]);
+      const customer=customers.find(c=>c.name.toLowerCase()===name.toLowerCase());
+
+      if(customer){
+        const typeMap=new Map(types.map(t=>[t.id,t]));
+        const held=cylinders.filter(c=>c.status==='WITH_CUSTOMER' && c.customer_id===customer.id && c.active!==false);
+
+        document.getElementById('customerDetailName').textContent=customer.name;
+        document.getElementById('customerDetailInfo').innerHTML=
+          `<p><b>Telephone:</b> ${esc(customer.telephone||'—')}</p>
+           <p><b>Delivery address:</b> ${esc(customer.delivery_address||'—')}</p>
+           <p><b>Status:</b> Active</p>`;
+
+        const breakdown={};
+        held.forEach(c=>{
+          const t=typeMap.get(c.cylinder_type_id);
+          const gas=t?.gas_type||t?.stock_code||'Unknown';
+          breakdown[gas]=(breakdown[gas]||0)+1;
+        });
+
+        document.getElementById('customerDetailBreakdown').innerHTML=
+          '<div class="card"><h3>Current cylinder breakdown</h3>'+
+          Object.entries(breakdown).map(([g,n])=>`<p><b>${esc(g)}</b> — ${n}</p>`).join('')+
+          `<p><b>TOTAL — ${held.length}</b></p></div>`;
+
+        document.getElementById('customerDetailCylinders').innerHTML=
+          '<div class="card"><h3>Current cylinders</h3>'+
+          '<table><tr><th>Barcode</th><th>Gas</th><th>Type</th></tr>'+
+          held.map(c=>{
+            const t=typeMap.get(c.cylinder_type_id)||{};
+            return `<tr><td>${esc(c.barcode)}</td><td>${esc(t.gas_type||'')}</td><td>${esc(t.stock_code||t.description||'')}</td></tr>`;
+          }).join('')+
+          '</table></div>';
+
+        document.getElementById('customerDetailActions').innerHTML=
+          held.length===0?`<button onclick="archiveCustomer(${JSON.stringify(customer.name)})">ARCHIVE CUSTOMER</button>`:'';
+
+        show('customerDetail');
+        return;
+      }
+    }catch(e){}
+  }
+
+  // Existing V6 fallback.
+  document.getElementById('customerDetailName').textContent=name;
+  const info=db.customerInfo?.[name]||{},meta=db.customerMeta?.[name]||{};
+  document.getElementById('customerDetailInfo').innerHTML=
+    `<p><b>Telephone:</b> ${esc(info.phone||'—')}</p><p><b>Delivery address:</b> ${esc(info.address||'—')}</p><p><b>Status:</b> ${meta.archived?'Archived':'Active'}</p>`;
+  const a=db.cylinders.filter(x=>x.status==='With Customer'&&x.customer===name),m={};
+  a.forEach(x=>m[x.gas]=(m[x.gas]||0)+1);
+  document.getElementById('customerDetailBreakdown').innerHTML=
+    '<div class="card"><h3>Current cylinder breakdown</h3>'+
+    Object.entries(m).map(([g,n])=>`<p><b>${esc(g)}</b> — ${n}</p>`).join('')+
+    `<p><b>TOTAL — ${a.length}</b></p></div>`;
+  document.getElementById('customerDetailCylinders').innerHTML=
+    '<div class="card"><h3>Current cylinders</h3><table><tr><th>Barcode</th><th>Gas</th><th>Type</th></tr>'+
+    a.map(x=>`<tr><td>${esc(x.barcode)}</td><td>${esc(x.gas)}</td><td>${esc(x.type||'')}</td></tr>`).join('')+
+    '</table></div>';
+  document.getElementById('customerDetailActions').innerHTML=
+    (meta.archived?`<button onclick="restoreCustomer(${JSON.stringify(name)})">RESTORE CUSTOMER</button>`:a.length===0?`<button onclick="archiveCustomer(${JSON.stringify(name)})">ARCHIVE CUSTOMER</button>`:'');
+  show('customerDetail');
+}
+function searchCustomers(){const q=document.getElementById('customerSearch').value.trim().toLowerCase(),hits=db.customers.slice().sort((a,b)=>a.localeCompare(b)).filter(c=>c.toLowerCase().includes(q)).slice(0,10);document.getElementById('customerSuggestions').innerHTML=q?hits.map(c=>`<div class="suggestion" onclick="openCustomerDetail(${JSON.stringify(c)})"><b>${esc(c)}</b>${(db.customerMeta[c]||{}).archived?' — Archived':''}</div>`).join(''):'';refresh()}
+function addType(){let code=document.getElementById('typeCode').value.trim(),gas=document.getElementById('typeGas').value.trim(),description=document.getElementById('typeDesc').value.trim();if(!code||!gas||!description){alert('Code, gas and description are required.');return}if(db.types.some(t=>t.code===code)){alert('That stock code already exists.');return}db.types.push({code,gas,description,archived:false});document.getElementById('typeCode').value='';document.getElementById('typeGas').value='';document.getElementById('typeDesc').value='';save()}
+function typeHasHistory(code){return db.cylinders.some(c=>c.type===code||(c.history||[]).some(h=>h.type===code))}
+function editType(code){const t=db.types.find(x=>x.code===code);if(!t)return;const gas=prompt('Gas type:',t.gas);if(gas===null)return;const desc=prompt('Description:',t.description);if(desc===null)return;if(!gas.trim()||!desc.trim()){alert('Gas and description cannot be blank.');return}t.gas=gas.trim();t.description=desc.trim();db.cylinders.filter(c=>c.type===code).forEach(c=>{c.gas=t.gas;c.description=t.description});save()}
+function archiveOrDeleteType(code){const t=db.types.find(x=>x.code===code);if(!t)return;const inStock=db.cylinders.some(c=>c.type===code&&c.status==='In Stock');if(typeHasHistory(code)){if(inStock){alert('This code has cylinders in stock, so it cannot be archived yet.');return}if(confirm('Archive this stock code? Its cylinder history will remain intact.')){t.archived=true;save()}return}if(confirm('Delete this unused stock code?')){db.types=db.types.filter(x=>x.code!==code);save()}}
+function restoreType(code){const t=db.types.find(x=>x.code===code);if(t){t.archived=false;save()}}
+function syncOutCustomer(){}
+function syncRentalCustomer(){}
+let liveStockRows=[], liveStockTypes=[];
+async function openStockWindow(status='In Stock'){
+  show('stockWindow');
+  document.getElementById('stockWindowTitle').textContent='Cylinders In Stock';
+  document.getElementById('stockWindowBody').innerHTML='<p class="muted">Loading live stock from Supabase…</p>';
+  try{
+    if(!window.CylinderLive) throw new Error('Live database connection is not available.');
+    const [cylinders,types]=await Promise.all([CylinderLive.allCylinders(),CylinderLive.cylinderTypes()]);
+    const typeMap=new Map(types.map(t=>[t.id,t]));
+    liveStockTypes=types.slice();
+    liveStockRows=cylinders.filter(c=>c.status==='IN_STOCK'&&c.active!==false).map(c=>{const t=typeMap.get(c.cylinder_type_id)||{};return {...c,stock_code:t.stock_code||'',gas_type:t.gas_type||'',description:t.description||''};});
+    const sel=document.getElementById('stockGasFilter');
+    const current=sel.value;
+    sel.innerHTML='<option value="">All gas types</option>'+[...new Set(liveStockRows.map(x=>x.gas_type).filter(Boolean))].sort().map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('');
+    if([...sel.options].some(o=>o.value===current)) sel.value=current;
+    renderLiveStock();
+  }catch(e){document.getElementById('stockWindowBody').innerHTML='<p class="warning">Could not load live stock.<br>'+esc(e.message)+'</p>';}
+}
+function renderLiveStock(){
+  const q=(document.getElementById('stockSearch')?.value||'').trim().toLowerCase();
+  const gf=document.getElementById('stockGasFilter')?.value||'';
+  const arr=liveStockRows.filter(x=>(!gf||x.gas_type===gf)&&(!q||[x.barcode,x.gas_type,x.stock_code,x.description,x.sto].some(v=>String(v||'').toLowerCase().includes(q))));
+  const counts={}; liveStockRows.forEach(x=>counts[x.gas_type]=(counts[x.gas_type]||0)+1);
+  document.getElementById('stockWindowTitle').textContent='Cylinders In Stock — '+arr.length+' shown / '+liveStockRows.length+' total';
+  const breakdown=Object.entries(counts).sort((a,b)=>a[0].localeCompare(b[0])).map(([g,n])=>`<button class="badge" onclick="document.getElementById('stockGasFilter').value=${JSON.stringify(g)};renderLiveStock()">${esc(g)}: ${n}</button>`).join(' ');
+  document.getElementById('stockWindowBody').innerHTML='<div class="card"><h3>Live stock breakdown</h3>'+breakdown+(gf?` <button onclick="document.getElementById('stockGasFilter').value='';renderLiveStock()">SHOW ALL</button>`:'')+'</div>'+
+    '<table><tr><th>Barcode</th><th>Gas</th><th>Stock Code</th><th>Description</th><th>STO</th><th>Action</th></tr>'+
+    (arr.length?arr.map(x=>`<tr><td><b>${esc(x.barcode)}</b></td><td>${esc(x.gas_type)}</td><td>${esc(x.stock_code)}</td><td>${esc(x.description)}</td><td>${esc(x.sto||'—')}</td><td><button class="smallbtn" onclick='findLiveCylinder(${JSON.stringify(x.barcode)})'>HISTORY</button></td></tr>`).join(''):'<tr><td colspan="6">No cylinders match your search.</td></tr>')+'</table>';
+}
+function findLiveCylinder(barcode){document.getElementById('findBarcode').value=barcode;show('find');findCylinder();}
+function printStockWindow(){const body=document.getElementById('stockWindowBody')?.innerHTML||'';if(!body)return;printWindow('Live Stock',body)}
+function enterAddOut(e){if(e.key==='Enter'){e.preventDefault();addOut()}}
+function addOut(){let bc=document.getElementById('outBarcode').value.trim(),cust=document.getElementById('outCustomerSearch').value.trim(),inv=document.getElementById('outInvoice').value.trim()||'PENDING';if(!db.customers.includes(cust)||((db.customerMeta[cust]||{}).archived)){alert('Please select an active customer or add the customer first.');return}if(!bc)return;if(!validBarcode(bc)){alert('BARCODE NOT VALID\nIt must start with 710311 and contain 8 digits after it.');return}let c=db.cylinders.find(x=>x.barcode===bc);if(!c){alert('Barcode not found. Add it through Receiving first.');return}if(c.status!=='In Stock'){alert('CYLINDER ALREADY OUT / NOT AVAILABLE. Current status: '+c.status+(c.customer?' — '+c.customer:''));return}if(outSession.some(x=>x.barcode===bc)){alert('This cylinder is already scanned in this delivery.');return}outSession.push({barcode:bc,gas:c.gas,type:c.type||'',customer:cust,invoice:inv});document.getElementById('outBarcode').value='';renderOut()}
+function renderOut(){let m={};outSession.forEach(x=>m[x.gas]=(m[x.gas]||0)+1);document.getElementById('outList').innerHTML=`<p><b>${outSession.length} cylinders scanned</b></p><table><tr><th>Gas type</th><th>Quantity</th></tr>${Object.entries(m).map(([g,n])=>`<tr><td>${esc(g)}</td><td>${n}</td></tr>`).join('')}</table><details><summary>Show barcodes</summary><ol>${outSession.map((x,i)=>`<li>${esc(x.barcode)} — ${esc(x.gas)} <button onclick="outSession.splice(${i},1);renderOut()">Remove</button></li>`).join('')}</ol></details>`}
+function completeOut(){if(!outSession.length){alert('No cylinders scanned.');return}outSession.forEach(x=>{let c=db.cylinders.find(c=>c.barcode===x.barcode);c.status='With Customer';c.customer=x.customer;c.invoice=x.invoice;recordMovement(c,'OUT',{customer:x.customer,invoice:x.invoice,source:'MANUAL'})});outSession=[];save();alert('Scan OUT completed.');show('dashboard')}
+let returnSession=[];
+function enterReturn(e){if(e.key==='Enter'){e.preventDefault();addReturn()}}
+function renderReturn(){
+  const list=document.getElementById('returnList'); if(!list)return;
+  if(!returnSession.length){list.innerHTML='<p class="muted">No cylinders queued yet.</p>';return}
+  const groups={}; returnSession.forEach(x=>groups[x.customer]=(groups[x.customer]||0)+1);
+  list.innerHTML='<div class="card"><p><b>'+returnSession.length+' cylinders queued for return</b></p>'+
+    Object.entries(groups).map(([c,n])=>'<span class="badge">'+esc(c)+': '+n+'</span>').join(' ')+
+    '<details open><summary>Show queued cylinders</summary><ol>'+returnSession.map((x,i)=>'<li>'+esc(x.barcode)+' — '+esc(x.customer)+' — '+esc(x.type)+' <button onclick="returnSession.splice('+i+',1);renderReturn()">Remove</button></li>').join('')+'</ol></details></div>';
+}
+async function addReturn(){
+  const input=document.getElementById('returnBarcode'); const msg=document.getElementById('returnMsg');
+  const barcode=input.value.trim(); if(!barcode)return;
+  if(!/^710311\d{8}$/.test(barcode)){msg.innerHTML='<p class="warning"><b>BARCODE NOT VALID.</b><br>It must start with 710311 and contain 8 digits after it.</p>';return;}
+  if(returnSession.some(x=>x.barcode===barcode)){msg.innerHTML='<p class="warning">This cylinder is already in the return list.</p>';input.value='';return;}
+  try{
+    const rows=await CylinderLive.cylindersByBarcode([barcode]);
+    if(!rows.length)throw new Error('Barcode not found in the live database.');
+    const cylinder=rows[0];
+    if(cylinder.status!=='WITH_CUSTOMER')throw new Error('This cylinder is not currently with a customer.');
+    const customers=await CylinderLive.customers(); const customer=customers.find(x=>x.id===cylinder.customer_id);
+    const types=await CylinderLive.cylinderTypes(); const t=types.find(x=>x.id===cylinder.cylinder_type_id);
+    returnSession.push({barcode,customer:customer?.name||'Unknown customer',type:(t?.stock_code||'')+(t?.gas_type?' - '+t.gas_type:'')+(t?.description?' - '+t.description:'')});
+    input.value=''; msg.innerHTML='<p class="success">Added <b>'+esc(barcode)+'</b> to the return list.</p>'; renderReturn();
+  }catch(e){msg.innerHTML='<p class="warning">'+esc(e.message)+'</p>';}
+}
+async function completeReturn(){
+  const msg=document.getElementById('returnMsg'); if(!returnSession.length){msg.innerHTML='<p class="warning">No cylinders queued for return.</p>';return;}
+  const items=[...returnSession];
+  try{
+    const result=await CylinderLive.movement({action:'RETURN',barcodes:items.map(x=>x.barcode)});
+    if(!result.ok)throw new Error(result.error||'Returns were not completed.');
+    for(const x of items){const local=db.cylinders.find(c=>c.barcode===x.barcode);if(local){local.status='Returned / Empty';local.customer='';recordMovement(local,'RETURN',{customer:x.customer,returnDate:new Date().toISOString(),source:'SUPABASE'});}}
+    returnSession=[]; save(); renderReturn(); document.getElementById('returnBarcode').value='';
+    msg.innerHTML='<p class="success"><b>'+items.length+' RETURN'+(items.length===1?'':'S')+' COMPLETED SUCCESSFULLY.</b></p><p>All queued cylinders are now Returned / Empty.</p>';
+  }catch(e){msg.innerHTML='<p class="warning"><b>RETURNS WERE NOT COMPLETED.</b><br>No cylinder was changed in the app.<br>'+esc(e.message)+'</p>';}
+}
+function enterAddReceive(e){if(e.key==='Enter'){e.preventDefault();addReceive()}}
+function addReceive(){let bc=document.getElementById('receiveBarcode').value.trim(),sel=document.getElementById('receiveType').value;let code=sel.split(' — ')[0],t=db.types.find(x=>x.code===code&&!x.archived);if(!bc||!t)return;if(!validBarcode(bc)){alert('BARCODE NOT VALID\nIt must start with 710311 and contain 8 digits after it.');return}if(db.cylinders.some(c=>c.barcode===bc)||receiveSession.some(c=>c.barcode===bc)){alert('Duplicate barcode.');return}receiveSession.push({barcode:bc,code:t.code,gas:t.gas,description:t.description});document.getElementById('receiveBarcode').value='';renderReceive()}
+function renderReceive(){let m={};receiveSession.forEach(x=>m[x.gas]=(m[x.gas]||0)+1);document.getElementById('receiveList').innerHTML=`<p><b>${receiveSession.length} cylinders queued</b></p>${Object.entries(m).map(([g,n])=>`<span class="badge">${esc(g)}: ${n}</span> `).join('')}<details open><summary>Show queued barcodes</summary><ol>${receiveSession.map((x,i)=>`<li>${esc(x.barcode)} — ${esc(x.code)} ${esc(x.description)} <button onclick="receiveSession.splice(${i},1);renderReceive()">Remove</button></li>`).join('')}</ol></details>`}
+async function completeReceive(){
+  if(!receiveSession.length){alert('Nothing to receive.');return}
+  try{
+    const types=await CylinderLive.cylinderTypes();
+    const typeMap=new Map(types.map(t=>[t.stock_code,t.id]));
+    const sto=document.getElementById('receiveSto')?.value.trim()||null;
+    const items=receiveSession.map(x=>({
+      barcode:x.barcode,
+      cylinder_type_id:typeMap.get(x.code),
+      sto:sto
+    }));
+    if(items.some(x=>!x.cylinder_type_id)){
+      throw new Error('One or more cylinder types could not be matched to the live database. Please check Settings first.');
+    }
+    const result=await CylinderLive.movement({
+      action:'RECEIVE',
+      receive_items:items,
+      barcodes:items.map(x=>x.barcode),
+      sto:sto
+    });
+    if(!result.ok) throw new Error(result.error||'Receiving was not completed.');
+
+    receiveSession.forEach(x=>{
+      let c=db.cylinders.find(c=>c.barcode===x.barcode);
+      if(!c){
+        c={barcode:x.barcode,status:'In Stock',gas:x.gas,type:x.code,description:x.description,customer:'',history:[]};
+        db.cylinders.push(c);
+      }else{
+        c.status='In Stock'; c.customer=''; c.gas=x.gas; c.type=x.code; c.description=x.description;
+      }
+      recordMovement(c,'SUPPLIER IN',{source:'SUPABASE',notes:sto?'STO: '+sto:''});
+    });
+    const count=result.count||receiveSession.length;
+    receiveSession=[]; save();
+    if(document.getElementById('receiveSto')) document.getElementById('receiveSto').value='';
+    alert('RECEIVING COMPLETED SUCCESSFULLY.\n\n'+count+' cylinder(s) are now in stock.');
+    show('dashboard');
+  }catch(e){
+    alert('RECEIVING WAS NOT COMPLETED.\n\nNo cylinders were changed in the app.\n\n'+e.message);
+  }
+}
+async function findCylinder(){
+  const input=document.getElementById('findBarcode');
+  const r=document.getElementById('findResult');
+  const bc=input.value.trim();
+
+  if(!bc){r.innerHTML='<p class="warning">Please enter or scan a barcode.</p>';return}
+  if(!validBarcode(bc)){
+    r.innerHTML='<p class="warning"><b>BARCODE NOT VALID.</b><br>It must start with 710311 and contain 8 digits after it.</p>';
+    return;
+  }
+
+  r.innerHTML='<p class="muted">Checking live database...</p>';
+
+  try{
+    const rows=await CylinderLive.cylindersByBarcode([bc]);
+    if(!rows.length){r.innerHTML='<p class="warning">Cylinder not found in the live database.</p>';return}
+
+    const c=rows[0];
+    const types=await CylinderLive.cylinderTypes();
+    const t=types.find(x=>x.id===c.cylinder_type_id);
+    const customers=await CylinderLive.customers();
+    const customer=c.customer_id?customers.find(x=>x.id===c.customer_id):null;
+
+    const movementRows=await CylinderLive.request(
+      '/rest/v1/movement_ledger?select=movement_type,movement_at,customer_id,invoice_number,sto,notes,source&cylinder_id=eq.'+
+      encodeURIComponent(c.id)+'&order=movement_at.desc'
+    );
+
+    const statusLabel={
+      IN_STOCK:'In Stock',
+      WITH_CUSTOMER:'With Customer',
+      WITH_AFROX:'With Supplier',
+      ARCHIVED:'Archived'
+    }[c.status]||c.status;
+
+    const history=movementRows.map(h=>{
+      const customerName=h.customer_id?((customers.find(x=>x.id===h.customer_id)||{}).name||'Unknown customer'):'';
+      const extras=[
+        customerName?(' — '+esc(customerName)):'',
+        h.invoice_number?(' — Invoice: '+esc(h.invoice_number)):'',
+        h.sto?(' — STO: '+esc(h.sto)):'',
+        h.notes?(' — '+esc(h.notes)):''
+      ].join('');
+      return '<li>'+new Date(h.movement_at).toLocaleString()+' — <b>'+esc(h.movement_type)+'</b>'+extras+'</li>';
+    }).join('');
+
+    r.innerHTML=
+      '<div class="card">'+
+      '<h3>'+esc(c.barcode)+'</h3>'+
+      '<p><b>Stock code:</b> '+esc(t?.stock_code||'')+'</p>'+
+      '<p><b>Gas:</b> '+esc(t?.gas_type||'')+'</p>'+
+      '<p><b>Description:</b> '+esc(t?.description||'')+'</p>'+
+      '<p><b>Status:</b> '+esc(statusLabel)+'</p>'+
+      '<p><b>Customer:</b> '+esc(customer?.name||'—')+'</p>'+
+      '<h3>Movement History</h3>'+
+      (history?'<ul>'+history+'</ul>':'<p class="muted">No movement history recorded.</p>')+
+      '</div>';
+  }catch(e){
+    r.innerHTML='<p class="warning"><b>Could not check the live database.</b><br>'+esc(e.message)+'</p>';
+  }
+}
+let goLiveCompanySession=[],goLiveCustomerSession=[];
+function enterGoLiveCompany(e){if(e.key==='Enter'){e.preventDefault();addGoLiveCompany()}}
+function enterGoLiveCustomer(e){if(e.key==='Enter'){e.preventDefault();addGoLiveCustomer()}}
+async function initGoLiveReset(){
+  const status=document.getElementById('goLiveResetStatus');
+  try{
+    const [customers,types,resets]=await Promise.all([
+      CylinderLive.customers(),CylinderLive.cylinderTypes(),CylinderLive.request('/rest/v1/go_live_resets?select=id,reset_date,status,company_barcode_count,customer_barcode_count,unbarcoded_company_count,created_at&order=reset_date.desc&limit=10')
+    ]);
+    document.getElementById('goLiveCustomer').innerHTML=customers.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+    document.getElementById('goLiveUnbarcodedInputs').innerHTML=types.map(t=>`<label>${esc(t.stock_code)} — ${esc(t.gas_type)}<input class="goLiveUnbarcoded" data-type-id="${esc(t.id)}" data-code="${esc(t.stock_code)}" type="number" min="0" step="1" value="0"></label>`).join('');
+    if(resets.length){
+      const r=resets[0];
+      status.innerHTML=`<p class="warning"><b>GO-LIVE RESET ALREADY COMPLETED.</b><br>${esc(r.reset_date)} — ${r.company_barcode_count} company barcode(s), ${r.customer_barcode_count} customer barcode(s), ${r.unbarcoded_company_count} unbarcoded cylinder(s).</p>`;
+      document.querySelectorAll('#goLiveReset input,#goLiveReset select,#goLiveReset button').forEach(el=>{if(!el.matches('button[onclick="show(\'settings\')"]'))el.disabled=true});
+    }else{
+      status.innerHTML='<p class="success"><b>READY FOR 19 OCTOBER 2026.</b> No Go-Live reset has been completed yet.</p>';
+    }
+    renderGoLiveReset();
+  }catch(e){status.innerHTML='<p class="warning"><b>Could not load Go-Live setup.</b><br>'+esc(e.message)+'</p>'}
+}
+async function addGoLiveCompany(){
+  const input=document.getElementById('goLiveCompanyBarcode'),bc=input.value.trim();
+  if(!validBarcode(bc)){alert('BARCODE NOT VALID\nIt must start with 710311 and contain 8 digits after it.');return}
+  if(goLiveCompanySession.some(x=>x.barcode===bc)||goLiveCustomerSession.some(x=>x.barcode===bc)){alert('This barcode is already included in the Go-Live stock take.');return}
+  try{
+    const rows=await CylinderLive.cylindersByBarcode([bc]);
+    if(!rows.length){alert('Cylinder not found in the live database. Add/receive the cylinder first.');return}
+    const types=await CylinderLive.cylinderTypes(),t=types.find(x=>x.id===rows[0].cylinder_type_id);
+    goLiveCompanySession.push({barcode:bc,typeId:rows[0].cylinder_type_id,code:t?.stock_code||'',gas:t?.gas_type||''});
+    input.value='';renderGoLiveReset();
+  }catch(e){alert('Could not check barcode.\n'+e.message)}
+}
+async function addGoLiveCustomer(){
+  const input=document.getElementById('goLiveCustomerBarcode'),bc=input.value.trim(),customerId=document.getElementById('goLiveCustomer').value;
+  if(!customerId){alert('Please select a customer first.');return}
+  if(!validBarcode(bc)){alert('BARCODE NOT VALID\nIt must start with 710311 and contain 8 digits after it.');return}
+  if(goLiveCompanySession.some(x=>x.barcode===bc)||goLiveCustomerSession.some(x=>x.barcode===bc)){alert('This barcode is already included in the Go-Live stock take.');return}
+  try{
+    const rows=await CylinderLive.cylindersByBarcode([bc]);
+    if(!rows.length){alert('Cylinder not found in the live database.');return}
+    const types=await CylinderLive.cylinderTypes(),t=types.find(x=>x.id===rows[0].cylinder_type_id);
+    goLiveCustomerSession.push({barcode:bc,customerId,typeId:rows[0].cylinder_type_id,code:t?.stock_code||'',gas:t?.gas_type||''});
+    input.value='';renderGoLiveReset();
+  }catch(e){alert('Could not check barcode.\n'+e.message)}
+}
+function goLiveUnbarcoded(){return [...document.querySelectorAll('.goLiveUnbarcoded')].map(el=>({cylinder_type_id:el.dataset.typeId,unbarcoded_quantity:Number(el.value)||0,code:el.dataset.code})).filter(x=>x.unbarcoded_quantity>0)}
+function renderGoLiveReset(){
+  const cl=document.getElementById('goLiveCompanyList'),ul=document.getElementById('goLiveCustomerList'),review=document.getElementById('goLiveReview');
+  if(!cl)return;
+  const byType=(arr)=>{const m={};arr.forEach(x=>m[x.gas]=(m[x.gas]||0)+1);return Object.entries(m).map(([g,n])=>`<span class="badge">${esc(g)}: ${n}</span>`).join(' ')||'—'};
+  cl.innerHTML=`<p><b>${goLiveCompanySession.length}</b> barcoded company cylinders queued</p><p>${byType(goLiveCompanySession)}</p><details><summary>Show queued barcodes</summary><ol>${goLiveCompanySession.map((x,i)=>`<li>${esc(x.barcode)} — ${esc(x.code)} ${esc(x.gas)} <button class="smallbtn" onclick="goLiveCompanySession.splice(${i},1);renderGoLiveReset()">Remove</button></li>`).join('')}</ol></details>`;
+  const names={};document.querySelectorAll('#goLiveCustomer option').forEach(o=>names[o.value]=o.textContent);
+  const groups={};goLiveCustomerSession.forEach(x=>{const key=x.customerId;groups[key]=groups[key]||[];groups[key].push(x)});
+  ul.innerHTML=`<p><b>${goLiveCustomerSession.length}</b> customer-held barcoded cylinders queued</p>`+Object.entries(groups).map(([cid,arr])=>`<div class="modalish"><b>${esc(names[cid]||cid)}</b> — ${arr.length} cylinder(s) — ${byType(arr)}<ol>${arr.map(x=>`<li>${esc(x.barcode)} — ${esc(x.code)} ${esc(x.gas)}</li>`).join('')}</ol></div>`).join('')||'<p class="muted">No customer cylinders queued yet.</p>';
+  const ub=goLiveUnbarcoded(),ubTotal=ub.reduce((n,x)=>n+x.unbarcoded_quantity,0);
+  review.innerHTML=`<p><b>Company barcoded:</b> ${goLiveCompanySession.length}</p><p><b>Customer barcoded:</b> ${goLiveCustomerSession.length}</p><p><b>Unbarcoded older company stock:</b> ${ubTotal}</p><p><b>Total physically accounted for:</b> ${goLiveCompanySession.length+goLiveCustomerSession.length+ubTotal}</p>`;
+}
+async function confirmGoLiveReset(){
+  if(!goLiveCompanySession.length && !goLiveCustomerSession.length && !goLiveUnbarcoded().length){alert('Nothing has been entered. Complete the physical stock take first.');return}
+  const customerNames={};document.querySelectorAll('#goLiveCustomer option').forEach(o=>customerNames[o.value]=o.textContent);
+  const summary=`19 October 2026 GO-LIVE RESET\n\nCompany barcoded: ${goLiveCompanySession.length}\nCustomer barcoded: ${goLiveCustomerSession.length}\nUnbarcoded older stock: ${goLiveUnbarcoded().reduce((n,x)=>n+x.unbarcoded_quantity,0)}\n\nThis cannot be repeated for the 19 October reset date.\nPrevious history will NOT be deleted.\n\nContinue?`;
+  if(!confirm(summary))return;
+  try{
+    document.getElementById('goLiveResetStatus').innerHTML='<p class="muted">Saving the Go-Live opening balances…</p>';
+    const result=await CylinderLive.movement({action:'GO_LIVE_RESET',reset_date:'2026-10-19',company_barcodes:goLiveCompanySession.map(x=>x.barcode),customer_items:goLiveCustomerSession.map(x=>({barcode:x.barcode,customer_id:x.customerId})),unbarcoded_company:goLiveUnbarcoded(),notes:document.getElementById('goLiveNotes').value.trim()||null});
+    if(!result.ok)throw new Error(result.error||'Go-Live reset was not completed.');
+    alert('GO-LIVE RESET COMPLETED SUCCESSFULLY.\n\n19 October 2026 is now the opening balance for the live system.');
+    initGoLiveReset();
+  }catch(e){document.getElementById('goLiveResetStatus').innerHTML='<p class="warning"><b>GO-LIVE RESET WAS NOT COMPLETED.</b><br>'+esc(e.message)+'</p>'}
+}
+
+function rentalDateDefaults(){
+  const now=new Date();
+  let y=now.getFullYear(), m=now.getMonth();
+  // Use the most recently completed 19th as the default report end date.
+  if(now.getDate()<19){ m-=1; if(m<0){m=11;y--;} }
+  const end=new Date(y,m,19);
+  const iso=d=>{const yy=d.getFullYear(),mm=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return `${yy}-${mm}-${dd}`};
+  const el=document.getElementById('rentalEndDate'); if(el&&!el.value) el.value=iso(end);
+}
+function rentalPeriod(){
+  const v=document.getElementById('rentalEndDate').value;
+  if(!v) throw new Error('Please select a rental period end date.');
+  const end=new Date(v+'T23:59:59');
+  const start=new Date(end.getFullYear(),end.getMonth()-1,20,0,0,0);
+  const iso=d=>{const yy=d.getFullYear(),mm=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return `${yy}-${mm}-${dd}`};
+  return {start,end,startDate:iso(start),endDate:iso(end)};
+}
+function toggleRentalSelection(){document.getElementById('rentalCustomerSearch').disabled=document.getElementById('rentalAll').checked}
+function fmtMoney(n){return 'R'+Number(n||0).toFixed(2)}
+function dateLabel(v){return new Date(v+'T12:00:00').toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}
+async function rentalData(){
+  const [customers,cylinders,types,openings,movements,adjustments]=await Promise.all([
+    CylinderLive.customers(),
+    CylinderLive.allCylinders(),
+    CylinderLive.cylinderTypes(),
+    CylinderLive.request('/rest/v1/customer_opening_balances?select=customer_id,gas_type,quantity,source&order=customer_id.asc'),
+    CylinderLive.request('/rest/v1/movement_ledger?select=id,cylinder_id,movement_type,movement_at,customer_id,invoice_number,sto,notes,source&order=movement_at.asc&limit=10000'),
+    CylinderLive.request('/rest/v1/rental_adjustments?select=id,customer_id,rental_start,rental_end,calculated_quantity,adjusted_quantity,reason,created_at&order=created_at.desc&limit=1000'),
+    CylinderLive.request('/rest/v1/go_live_resets?select=id,reset_date,status&order=reset_date.desc&limit=20'),
+    CylinderLive.request('/rest/v1/go_live_reset_customer_balances?select=reset_id,customer_id,gas_type,quantity&order=created_at.asc&limit=10000')
+  ]);
+  return {customers,cylinders,types,openings,movements,adjustments,goLiveResets,goLiveBalances};
+}
+function calcCustomerRental(customerId, data, period){
+  const typeMap=new Map(data.types.map(t=>[t.id,t]));
+  const cylMap=new Map(data.cylinders.map(c=>[c.id,c]));
+  const qty={};
+  const reset=(data.goLiveResets||[]).filter(r=>r.reset_date < period.startDate && r.status==='CONFIRMED').sort((a,b)=>b.reset_date.localeCompare(a.reset_date))[0];
+  if(reset){
+    (data.goLiveBalances||[]).filter(o=>o.reset_id===reset.id && o.customer_id===customerId).forEach(o=>{const g=o.gas_type||'Unknown type';qty[g]=(qty[g]||0)+Number(o.quantity||0)});
+  }else{
+    data.openings.filter(o=>o.customer_id===customerId).forEach(o=>{const g=o.gas_type||'Unknown type';qty[g]=(qty[g]||0)+Number(o.quantity||0)});
+  }
+  const moves=data.movements.filter(m=>m.customer_id===customerId && new Date(m.movement_at)>=period.start && new Date(m.movement_at)<=period.end);
+  moves.forEach(m=>{
+    const c=cylMap.get(m.cylinder_id); const t=c?typeMap.get(c.cylinder_type_id):null;
+    const g=t?.gas_type||t?.stock_code||'Unknown type';
+    if(m.movement_type==='SCAN_OUT') qty[g]=(qty[g]||0)+1;
+    if(m.movement_type==='SCAN_RETURN') qty[g]=(qty[g]||0)-1;
+  });
+  Object.keys(qty).forEach(k=>{if(qty[k]===0)delete qty[k]; if(qty[k]<0)qty[k]=0});
+  const calculated=Object.values(qty).reduce((a,b)=>a+b,0);
+  const adj=data.adjustments.find(a=>a.customer_id===customerId && a.rental_start===period.startDate && a.rental_end===period.endDate);
+  const finalQty=adj&&adj.adjusted_quantity!=null?Number(adj.adjusted_quantity):calculated;
+  return {qty,calculated,finalQty,adjustment:adj,moves};
+}
+async function saveRentalAdjustment(customerId,startDate,endDate,calculated,adjusted,reason){
+  const body={customer_id:customerId,rental_start:startDate,rental_end:endDate,calculated_quantity:calculated,adjusted_quantity:adjusted,reason:reason||null};
+  return CylinderLive.request('/rest/v1/rental_adjustments?on_conflict=customer_id,rental_start,rental_end',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify(body)});
+}
+function rentalOverride(customerId,calculated,current,customerName,startDate,endDate){
+  const v=prompt(`Rental quantity for ${customerName}\n\nCalculated closing quantity: ${calculated}\nCurrent billed quantity: ${current}\n\nEnter the quantity to bill:`,String(current));
+  if(v===null)return;
+  const n=Number(v); if(!Number.isInteger(n)||n<0){alert('Please enter a whole number of 0 or more.');return}
+  const reason=prompt('Reason for manual rental adjustment (optional):','')||'';
+  saveRentalAdjustment(customerId,startDate,endDate,calculated,n,reason).then(()=>rentalCalc()).catch(e=>alert('Could not save the rental adjustment.\n'+e.message));
+}
+async function rentalCalc(){
+  const notice=document.getElementById('rentalNotice'); const result=document.getElementById('rentalResult');
+  notice.innerHTML=''; result.innerHTML='<p class="muted">Calculating from the live movement history…</p>';
+  try{
+    const period=rentalPeriod(), rate=Number(document.getElementById('rentalRate').value)||0, data=await rentalData();
+    const all=document.getElementById('rentalAll').checked;
+    const wanted=all?data.customers:[];
+    if(!all){const name=document.getElementById('rentalCustomerSearch').value.trim(); const c=data.customers.find(x=>x.name.toLowerCase()===name.toLowerCase()); if(!c){alert('Please select an active customer or choose all customers.');result.innerHTML='';return} wanted.push(c)}
+    const firstMovement=data.movements.length?new Date(data.movements[0].movement_at):null;
+    if(firstMovement && period.start<firstMovement){notice.innerHTML='<p class="warning">This period starts before the app\'s recorded movement history. The report uses the imported customer opening balances plus movements available in the database; older cylinder-by-cylinder history is not available.</p>'}
+    let html='',grand=0;
+    wanted.forEach(c=>{
+      const r=calcCustomerRental(c.id,data,period), amount=r.finalQty*rate; grand+=amount;
+      const details=Object.entries(r.qty).sort((a,b)=>a[0].localeCompare(b[0])).map(([g,n])=>`<span class="badge">${esc(g)}: ${n}</span>`).join(' ')||'—';
+      html+=`<div class="card rentalCard"><h3>${esc(c.name)}</h3><p><b>Rental period:</b> ${dateLabel(period.startDate)} → ${dateLabel(period.endDate)}</p><p><b>${esc(c.name)} total: ${r.finalQty} cylinders</b></p><p><b>Rental amount:</b> ${r.finalQty} × ${fmtMoney(rate)} = <b>${fmtMoney(amount)}</b></p>${r.adjustment?`<p class="warning"><b>Manual adjustment:</b> calculated ${r.calculated} → billed ${r.finalQty}${r.adjustment.reason?` — ${esc(r.adjustment.reason)}`:''}</p>`:''}<button onclick="toggleRentalDetails(this)">SHOW MORE</button> <button class="smallbtn" onclick='rentalOverride(${JSON.stringify(c.id)},${r.calculated},${r.finalQty},${JSON.stringify(c.name)},${JSON.stringify(period.startDate)},${JSON.stringify(period.endDate)})'>EDIT TOTAL</button><div class="rentalDetails hidden"><p><b>Type breakdown at period end:</b></p>${details}</div></div>`;
+    });
+    html+=`<div class="card"><h3>Grand Total</h3><p><b>${fmtMoney(grand)}</b></p><p class="muted">Calculated from closing cylinders on ${dateLabel(period.endDate)} and the rate entered above.</p></div>`;
+    result.innerHTML=html;
+    window.lastRental={period,rate,html};
+  }catch(e){result.innerHTML='<p class="warning"><b>Rental could not be calculated.</b><br>'+esc(e.message)+'</p>'}
+}
+function toggleRentalDetails(btn){const d=btn.nextElementSibling.nextElementSibling;d.classList.toggle('hidden');btn.textContent=d.classList.contains('hidden')?'SHOW MORE':'SHOW LESS'}
+function localISODate(){const d=new Date();const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');const day=String(d.getDate()).padStart(2,'0');return y+'-'+m+'-'+day}
+function dailyActionLabel(t){const m={SCAN_OUT:'SCAN OUT',SCAN_RETURN:'SCAN RETURN',RECEIVED_FROM_AFROX:'RECEIVED FROM SUPPLIER',SENT_TO_AFROX:'SENT TO SUPPLIER',OUT:'SCAN OUT',RETURN:'SCAN RETURN',RECEIVE:'RECEIVED FROM SUPPLIER',SEND_TO_AFROX:'SENT TO SUPPLIER'};return m[t]||String(t||'MOVEMENT').replace(/_/g,' ')}
+function dailyActionClass(t){if(['SCAN_OUT','OUT'].includes(t))return 'OUT';if(['SCAN_RETURN','RETURN'].includes(t))return 'RETURN';if(['RECEIVED_FROM_AFROX','RECEIVE'].includes(t))return 'SUPPLIER IN';if(['SENT_TO_AFROX','SEND_TO_AFROX'].includes(t))return 'SUPPLIER OUT';return dailyActionLabel(t)}
+function dailyEscape(v){return esc(v==null?'':String(v))}
+async function loadDailyReport(){
+  const date=document.getElementById('dailyReportDate').value||localISODate();
+  document.getElementById('dailyReportDate').value=date;
+  const notice=document.getElementById('dailyReportNotice'), result=document.getElementById('dailyReportResult');
+  notice.innerHTML=''; result.innerHTML='<p class="muted">Loading live movement history…</p>';
+  try{
+    const start=date+'T00:00:00';
+    const next=new Date(start); next.setDate(next.getDate()+1);
+    const endExclusive=next.toISOString();
+    const startIso=new Date(start).toISOString();
+    const [movements,customers,types,cylinders]=await Promise.all([
+      CylinderLive.request('/rest/v1/movement_ledger?select=id,cylinder_id,movement_type,movement_at,customer_id,invoice_number,sto,notes,source&movement_at=gte.'+encodeURIComponent(startIso)+'&movement_at=lt.'+encodeURIComponent(endExclusive)+'&order=movement_at.asc&limit=10000'),
+      CylinderLive.request('/rest/v1/customers?select=id,name,telephone,delivery_address,email,active&order=name.asc'),
+      CylinderLive.cylinderTypes(),
+      CylinderLive.allCylinders()
+    ]);
+    const customerMap=new Map(customers.map(x=>[x.id,x]));
+    const typeMap=new Map(types.map(x=>[x.id,x]));
+    const cylMap=new Map(cylinders.map(x=>[x.id,x]));
+    const rows=movements.map(m=>{const c=cylMap.get(m.cylinder_id)||{};const t=typeMap.get(c.cylinder_type_id)||{};const customer=customerMap.get(m.customer_id);return {...m,barcode:c.barcode||'—',gas_type:t.gas_type||'',stock_code:t.stock_code||'',description:t.description||'',customer_name:customer?.name||'—'};});
+    const counts={OUT:0,RETURN:0,'SUPPLIER IN':0,'SUPPLIER OUT':0,OTHER:0};
+    rows.forEach(r=>{const a=dailyActionClass(r.movement_type);counts[a]=(counts[a]||0)+1});
+    const typeCounts={};
+    rows.forEach(r=>{const key=r.gas_type||r.stock_code||'Unknown type';if(!typeCounts[key])typeCounts[key]={out:0,ret:0,ain:0,aout:0,other:0};const a=dailyActionClass(r.movement_type);if(a==='OUT')typeCounts[key].out++;else if(a==='RETURN')typeCounts[key].ret++;else if(a==='SUPPLIER IN')typeCounts[key].ain++;else if(a==='SUPPLIER OUT')typeCounts[key].aout++;else typeCounts[key].other++;});
+    const total=rows.length;
+    const summary='<div class="grid">'+
+      '<div class="card"><div class="muted">Total movements</div><div class="big">'+total+'</div></div>'+
+      '<div class="card"><div class="muted">Scan Out</div><div class="big">'+(counts.OUT||0)+'</div></div>'+
+      '<div class="card"><div class="muted">Scan Return</div><div class="big">'+(counts.RETURN||0)+'</div></div>'+
+      '<div class="card"><div class="muted">Supplier In</div><div class="big">'+(counts['SUPPLIER IN']||0)+'</div></div>'+
+      '<div class="card"><div class="muted">Supplier Out</div><div class="big">'+(counts['SUPPLIER OUT']||0)+'</div></div>'+
+      '</div>';
+    const typeRows=Object.entries(typeCounts).sort((a,b)=>a[0].localeCompare(b[0])).map(([k,v])=>'<tr><td><b>'+dailyEscape(k)+'</b></td><td>'+v.out+'</td><td>'+v.ret+'</td><td>'+v.ain+'</td><td>'+v.aout+'</td><td>'+Object.values(v).reduce((a,n)=>a+n,0)+'</td></tr>').join('');
+    const typeTable='<div class="card"><h3>Movement summary by gas type</h3><table><tr><th>Gas type</th><th>OUT</th><th>RETURN</th><th>SUPPLIER IN</th><th>SUPPLIER OUT</th><th>TOTAL</th></tr>'+(typeRows||'<tr><td colspan="6">No movement recorded for this date.</td></tr>')+'</table></div>';
+
+    // Printed-style movement sheets: gas type first, then customer, then OUT/RETURN columns.
+    // Each customer gets max(OUT, RETURN) rows. If fewer returns than outs, the unmatched
+    // return cell is explicitly marked NOT RETURNED so the shortage is visible on paper.
+    const customerMovementRows=rows.filter(r=>['OUT','RETURN'].includes(dailyActionClass(r.movement_type)));
+    const gasGroups={};
+    customerMovementRows.forEach(r=>{
+      const gasKey=r.gas_type||r.stock_code||'Unknown type';
+      if(!gasGroups[gasKey]) gasGroups[gasKey]={};
+      const customerKey=r.customer_name||'Unknown customer';
+      if(!gasGroups[gasKey][customerKey]) gasGroups[gasKey][customerKey]={outs:[],returns:[]};
+      const a=dailyActionClass(r.movement_type);
+      if(a==='OUT') gasGroups[gasKey][customerKey].outs.push(r);
+      else gasGroups[gasKey][customerKey].returns.push(r);
+    });
+
+    let gasCustomerSections='';
+    Object.entries(gasGroups).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([gas,customersForGas])=>{
+      let body='';
+      Object.entries(customersForGas).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([customer,g])=>{
+        const n=Math.max(g.outs.length,g.returns.length);
+        for(let i=0;i<n;i++){
+          const out=g.outs[i];
+          const ret=g.returns[i];
+          const returnText=ret?dailyEscape(ret.barcode):'<span class="daily-short">NOT RETURNED</span>';
+          body+='<tr>'+
+            '<td class="daily-customer">'+dailyEscape(customer)+'</td>'+
+            '<td>'+dailyEscape(out?out.barcode:'')+'</td>'+
+            '<td>'+returnText+'</td>'+
+            '</tr>';
+        }
+      });
+      if(!body) body='<tr><td colspan="3" class="muted">No customer movement.</td></tr>';
+      gasCustomerSections+='<div class="daily-gas-block"><h3>'+dailyEscape(gas)+'</h3>'+
+        '<table class="daily-movement-table"><tr><th>Customer</th><th>Scan Out</th><th>Return</th></tr>'+body+'</table></div>';
+    });
+
+    const afroxRows=rows.filter(r=>['SUPPLIER IN','SUPPLIER OUT'].includes(dailyActionClass(r.movement_type))).map(r=>
+      '<tr><td>'+dailyEscape(dailyActionLabel(r.movement_type))+'</td><td>'+dailyEscape(r.barcode)+'</td><td>'+dailyEscape(r.gas_type)+'</td><td>'+dailyEscape(r.sto||'')+'</td></tr>'
+    ).join('');
+    const afroxTable=afroxRows?'<div class="daily-gas-block"><h3>SUPPLIER MOVEMENTS</h3><table class="daily-movement-table"><tr><th>Movement</th><th>Barcode</th><th>Gas</th><th>STO</th></tr>'+afroxRows+'</table></div>':'';
+
+    const customerCounts={};rows.filter(r=>dailyActionClass(r.movement_type)==='OUT').forEach(r=>{customerCounts[r.customer_name]=(customerCounts[r.customer_name]||0)+1});
+    const customerReturns={};rows.filter(r=>dailyActionClass(r.movement_type)==='RETURN').forEach(r=>{customerReturns[r.customer_name]=(customerReturns[r.customer_name]||0)+1});
+    const allCustomerNames=[...new Set([...Object.keys(customerCounts),...Object.keys(customerReturns)])].sort((a,b)=>a.localeCompare(b));
+    const customerRows=allCustomerNames.map(name=>'<tr><td>'+dailyEscape(name)+'</td><td>'+((customerCounts[name]||0))+'</td><td>'+((customerReturns[name]||0))+'</td><td>'+((customerCounts[name]||0)-(customerReturns[name]||0))+'</td></tr>').join('');
+    const customerTable='<div class="card"><h3>Customer deliveries</h3><table><tr><th>Customer</th><th>Cylinders OUT</th><th>Cylinders RETURN</th><th>Net Out</th></tr>'+(customerRows||'<tr><td colspan="4">No customer movement recorded.</td></tr>')+'</table></div>';
+
+    const details=gasCustomerSections+afroxTable;
+    result.innerHTML='<div id="dailyReportPrintArea" class="daily-report-print"><style>.daily-report-print{font-size:13px}.daily-report-print .daily-gas-block{margin:14px 0}.daily-report-print .daily-gas-block h3{margin:8px 0 4px;border-bottom:2px solid #222;padding-bottom:4px}.daily-report-print .daily-movement-table{width:100%;border-collapse:collapse;table-layout:fixed}.daily-report-print .daily-movement-table th,.daily-report-print .daily-movement-table td{border:1px solid #444;padding:5px 6px;text-align:left;vertical-align:middle}.daily-report-print .daily-movement-table th{font-weight:700}.daily-report-print .daily-movement-table th:nth-child(1),.daily-report-print .daily-movement-table td:nth-child(1){width:30%}.daily-report-print .daily-movement-table th:nth-child(2),.daily-report-print .daily-movement-table td:nth-child(2){width:35%}.daily-report-print .daily-movement-table th:nth-child(3),.daily-report-print .daily-movement-table td:nth-child(3){width:35%}.daily-report-print .daily-customer{font-weight:700}.daily-report-print .daily-short{font-weight:700}.daily-report-print .card{margin:8px 0}.daily-report-print .big{font-size:22px;font-weight:700}</style><h2>Daily Cylinder Movement — '+dailyEscape(dateLabel(date))+'</h2>'+summary+details+customerTable+'</div>';
+    window.lastDailyReport={date,rows};
+  }catch(e){result.innerHTML='<p class="warning">Could not load the daily report.<br>'+dailyEscape(e.message)+'</p>'}
+}
+function printDailyReport(){if(!window.lastDailyReport||!document.getElementById('dailyReportPrintArea')?.innerHTML.trim()){alert('Please load the daily report first.');return}const w=window.open('','_blank','width=1200,height=850');if(!w){alert('Please allow pop-ups for printing.');return}const body=document.getElementById('dailyReportPrintArea').innerHTML;w.document.write('<!doctype html><html><head><title>Daily Cylinder Movement — '+esc(window.lastDailyReport.date)+'</title><style>@page{size:A4 landscape;margin:10mm}body{font-family:Arial,sans-serif;padding:0;font-size:11px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:4px 5px;text-align:left;vertical-align:middle}.card{margin:6px 0}.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.grid .card{border:1px solid #444;padding:5px}.muted{color:#555}.daily-gas-block{margin:9px 0;break-inside:avoid}.daily-gas-block h3{margin:5px 0 3px;border-bottom:2px solid #222;padding-bottom:3px}.daily-movement-table{table-layout:fixed}.daily-movement-table th:nth-child(1),.daily-movement-table td:nth-child(1){width:30%}.daily-movement-table th:nth-child(2),.daily-movement-table td:nth-child(2){width:35%}.daily-movement-table th:nth-child(3),.daily-movement-table td:nth-child(3){width:35%}.daily-customer{font-weight:700}.daily-short{font-weight:700}</style></head><body>'+body+'</body></html>');w.document.close();w.focus();w.print()}
+
+function printWindow(title,body){const w=window.open('','_blank','width=1000,height=800');if(!w){alert('Please allow pop-ups for printing.');return}w.document.write(`<!doctype html><html><head><title>${esc(title)}</title><style>body{font-family:Arial;padding:30px}table{width:100%;border-collapse:collapse}th,td{padding:8px;border-bottom:1px solid #ccc;text-align:left}.muted{color:#666}.badge{display:inline-block;margin-right:8px}</style></head><body><h1>${esc(title)}</h1>${body}</body></html>`);w.document.close();w.focus();w.print()}
+function printCustomers(){printWindow('Customer List',document.getElementById('customerTable').innerHTML)}
+function printCustomerDetail(){const name=document.getElementById('customerDetailName').textContent;printWindow('Customer — '+name,document.getElementById('customerDetailInfo').innerHTML+document.getElementById('customerDetailBreakdown').innerHTML+document.getElementById('customerDetailCylinders').innerHTML)}
+function printRental(){if(!window.lastRental||!document.getElementById('rentalResult').innerHTML.trim()){alert('Please calculate the rental first.');return}printWindow('Monthly Rental — '+window.lastRental.period.startDate+' to '+window.lastRental.period.endDate,document.getElementById('rentalResult').innerHTML)}
+const dailyDate=document.getElementById('dailyReportDate'); if(dailyDate&&!dailyDate.value) dailyDate.value=localISODate();
+rentalDateDefaults();
+async function startCameraScan(mode){stopCameraScan();cameraMode=mode;const msg=document.getElementById(mode==='out'?'outCameraMsg':mode==='receive'?'receiveCameraMsg':mode==='return'?'returnCameraMsg':mode==='goLiveCompany'?'goLiveCompanyCameraMsg':mode==='goLiveCustomer'?'goLiveCustomerCameraMsg':'findCameraMsg');if(!('BarcodeDetector' in window)){msg.innerHTML='<span class="warning">Camera barcode scanning is not supported by this browser. Use the manual field or a phone/browser with BarcodeDetector support.</span>';return}try{cameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});const video=document.createElement('video');video.id='cameraVideo';video.autoplay=true;video.playsInline=true;video.muted=true;video.srcObject=cameraStream;msg.innerHTML='Point the camera at the barcode…';msg.appendChild(video);const detector=new BarcodeDetector({formats:['code_128','ean_13','ean_8','upc_a','upc_e']});const scan=async()=>{if(!cameraStream)return;try{const codes=await detector.detect(video);if(codes.length){const value=(codes[0].rawValue||'').trim();document.getElementById(mode==='out'?'outBarcode':mode==='receive'?'receiveBarcode':mode==='return'?'returnBarcode':mode==='goLiveCompany'?'goLiveCompanyBarcode':mode==='goLiveCustomer'?'goLiveCustomerBarcode':'findBarcode').value=value;if(mode==='out')addOut();else if(mode==='receive')addReceive();else if(mode==='return')addReturn();else if(mode==='goLiveCompany')addGoLiveCompany();else if(mode==='goLiveCustomer')addGoLiveCustomer();else findCylinder();stopCameraScan();return}}catch(e){}requestAnimationFrame(scan)};video.onloadedmetadata=()=>scan()}catch(e){msg.innerHTML='<span class="warning">Camera access was not available. Check browser camera permission, or use manual entry.</span>'}}
+function stopCameraScan(){if(cameraStream){cameraStream.getTracks().forEach(t=>t.stop());cameraStream=null}const a=document.getElementById('outCameraMsg'),b=document.getElementById('receiveCameraMsg'),c=document.getElementById('returnCameraMsg'),d=document.getElementById('findCameraMsg');[a,b,c,d].forEach(x=>{if(x&&!cameraStream)x.innerHTML=''})}
+document.addEventListener('click', function(e){
+  const btn=e.target.closest && e.target.closest('.customer-action');
+  if(!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const name=btn.getAttribute('data-customer')||'';
+  const action=btn.getAttribute('data-action')||'';
+  if(!name) return;
+  if(action==='open') openCustomerDetail(name);
+  else if(action==='edit') editCustomer(name);
+  else if(action==='archive') archiveCustomer(name);
+});
+
+refresh();
+</script>
+<script>
+(function(){
+ const cfg=window.CYLINDER_SUPABASE; if(!cfg) return;
+ window.CylinderLive={
+  async request(path,options={}){
+   const headers=Object.assign({apikey:cfg.publishableKey,Authorization:"Bearer "+cfg.legacyAnonKey,"Content-Type":"application/json"},options.headers||{});
+   const r=await fetch(cfg.url+path,Object.assign({},options,{headers}));
+   const t=await r.text(); let d; try{d=JSON.parse(t)}catch(_){d={raw:t}}
+   if(!r.ok) throw new Error(d.error||d.message||("Supabase request failed: "+r.status));
+   return d;
+  },
+  async movement(payload){return this.request("/functions/v1/"+cfg.movementFunction,{method:"POST",body:JSON.stringify(payload)})},
+  async customers(){return this.request("/rest/v1/customers?select=id,name,telephone,delivery_address,email,active&active=eq.true&order=name.asc")},
+  async cylinderTypes(){return this.request("/rest/v1/cylinder_types?select=id,stock_code,gas_type,description,active&active=eq.true&order=stock_code.asc")},
+  async allCylinders(){return this.request("/rest/v1/cylinders?select=id,barcode,cylinder_type_id,sto,status,customer_id,active&order=barcode.asc")},
+  async cylindersByBarcode(barcodes){const u=[...new Set(barcodes)]; if(!u.length)return[]; const encoded=u.map(v=>`"${v.replace(/"/g,'\\"')}"`).join(','); return this.request("/rest/v1/cylinders?select=id,barcode,cylinder_type_id,sto,status,customer_id,active&barcode=in.("+encodeURIComponent(encoded)+")")}
+ };
+})();
+</script>
+
+<script>
+/* V6 LIVE SCAN OUT — database path only; approved UI remains unchanged. */
+(function(){
+ window.addOut=async function(){
+  const bc=document.getElementById('outBarcode').value.trim();
+  const custName=document.getElementById('outCustomerSearch').value.trim();
+  if(!custName){alert('Please select a customer first.');return}
+  if(!/^710311\d{8}$/.test(bc)){alert('BARCODE NOT VALID\nIt must start with 710311 and contain 8 digits after it.');return}
+  try{
+   const customers=await CylinderLive.customers();
+   const customer=customers.find(c=>c.name.toLowerCase()===custName.toLowerCase());
+   if(!customer){alert('Please select an active customer from the list.');return}
+   const rows=await CylinderLive.cylindersByBarcode([bc]);
+   if(!rows.length){alert('Barcode not found in the live stock database.');return}
+   const cylinder=rows[0];
+   if(cylinder.status!=='IN_STOCK'){alert('CYLINDER ALREADY OUT / NOT AVAILABLE.\nCurrent status: '+cylinder.status);return}
+   if(outSession.some(x=>x.barcode===bc)){alert('This cylinder is already scanned in this delivery.');return}
+   let gas='',type='';
+   try{const types=await CylinderLive.cylinderTypes();const t=types.find(x=>x.id===cylinder.cylinder_type_id);if(t){gas=t.gas_type||t.stock_code||'';type=t.description||t.stock_code||''}}catch(_){}
+   const inv=document.getElementById('outInvoice').value.trim()||'';
+   outSession.push({barcode:bc,gas,type,customer:customer.name,customerId:customer.id,invoice:inv,sto:cylinder.sto||''});
+   document.getElementById('outBarcode').value=''; renderOut();
+  }catch(e){alert('Could not check the live stock database.\n'+e.message)}
+ };
+ window.completeOut=async function(){
+  if(!outSession.length){alert('No cylinders scanned.');return}
+
+  const customerName=outSession[0].customer;
+  const customerId=outSession[0].customerId;
+  const invoice=document.getElementById('outInvoice').value.trim()||null;
+  const barcodes=outSession.map(x=>x.barcode);
+
+  const counts={};
+  outSession.forEach(x=>{
+    const label=x.gas||x.type||'Unknown type';
+    counts[label]=(counts[label]||0)+1;
+  });
+  const breakdown=Object.entries(counts).map(([k,v])=>`${k}: ${v}`).join('\n');
+
+  if(!confirm(
+    'CONFIRM SCAN OUT\n\n' +
+    'Customer: '+customerName+'\n' +
+    'Cylinders: '+barcodes.length+'\n\n' +
+    breakdown+'\n\n' +
+    (invoice ? 'Invoice: '+invoice : 'Invoice: PENDING — can be added later') +
+    '\n\nComplete this movement?'
+  )) return;
+
+  try{
+    const result=await CylinderLive.movement({
+      action:'OUT',
+      customer_id:customerId,
+      barcodes,
+      invoice_number:invoice
+    });
+
+    if(!result.ok) throw new Error(result.error||'Movement was not completed.');
+
+    outSession.forEach(x=>{
+      const c=db.cylinders.find(c=>c.barcode===x.barcode);
+      if(c){
+        c.status='With Customer';
+        c.customer=customerName;
+        c.invoice=invoice||'';
+        recordMovement(c,'OUT',{
+          customer:customerName,
+          invoice:invoice||'',
+          source:'SUPABASE'
+        });
+      }
+    });
+
+    outSession=[];
+    save();
+
+    alert(
+      'SCAN OUT COMPLETED SUCCESSFULLY.\n\n' +
+      barcodes.length+' cylinder(s) are now assigned to '+customerName+'.'
+    );
+    show('dashboard');
+  }catch(e){
+    alert(
+      'SCAN OUT WAS NOT COMPLETED.\n\n' +
+      'No cylinders were changed in the app.\n\n' +
+      e.message
+    );
+  }
+ };
+})();
+
+/* LIVE PENDING INVOICES */
+(function(){
+  let pendingInvoiceRows=[];
+  let pendingCustomers=[];
+  let pendingTypes=[];
+  let pendingCylinders=[];
+
+  function isoDateOnly(v){
+    if(!v) return '';
+    const d=new Date(v); if(Number.isNaN(d.getTime())) return '';
+    return d.toISOString().slice(0,10);
+  }
+  function niceDate(v){
+    if(!v) return '';
+    const d=new Date(v); if(Number.isNaN(d.getTime())) return v;
+    return d.toLocaleString([], {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+  }
+  function setPendingDefaultDates(){
+    const today=new Date().toISOString().slice(0,10);
+    const f=document.getElementById('pendingFromDate'), t=document.getElementById('pendingToDate');
+    if(f && !f.value) f.value=today;
+    if(t && !t.value) t.value=today;
+  }
+  window.loadPendingInvoices=async function(){
+    const notice=document.getElementById('pendingInvoicesNotice');
+    const result=document.getElementById('pendingInvoicesResult');
+    setPendingDefaultDates();
+    notice.innerHTML='<p class="muted">Loading pending invoices from the live database…</p>';
+    result.innerHTML='';
+    try{
+      if(!window.CylinderLive) throw new Error('Live database connection is not available.');
+      const [customers,types,cylinders,movements]=await Promise.all([
+        CylinderLive.customers(),
+        CylinderLive.cylinderTypes(),
+        CylinderLive.allCylinders(),
+        CylinderLive.request('/rest/v1/movement_ledger?select=id,cylinder_id,movement_type,movement_at,customer_id,invoice_number,sto,notes,source&movement_type=eq.SCAN_OUT&order=movement_at.desc&limit=10000')
+      ]);
+      pendingCustomers=customers||[]; pendingTypes=types||[]; pendingCylinders=cylinders||[];
+      const customerMap=new Map(pendingCustomers.map(x=>[x.id,x]));
+      const typeMap=new Map(pendingTypes.map(x=>[x.id,x]));
+      const cylMap=new Map(pendingCylinders.map(x=>[x.id,x]));
+      pendingInvoiceRows=(movements||[])
+        .filter(m=>m.invoice_number===null || String(m.invoice_number||'').trim()==='')
+        .map(m=>{
+          const c=cylMap.get(m.cylinder_id)||{};
+          const t=typeMap.get(c.cylinder_type_id)||{};
+          const cust=customerMap.get(m.customer_id)||{};
+          return {...m,barcode:c.barcode||'—',gas_type:t.gas_type||'',stock_code:t.stock_code||'',description:t.description||'',customer_name:cust.name||'Unknown customer',current_status:c.status||''};
+        });
+      notice.innerHTML='';
+      renderPendingInvoices();
+    }catch(e){
+      notice.innerHTML='<p class="warning">Could not load pending invoices.<br>'+esc(e.message)+'</p>';
+    }
+  };
+  window.renderPendingInvoices=function(){
+    const result=document.getElementById('pendingInvoicesResult'); if(!result) return;
+    const from=document.getElementById('pendingFromDate')?.value||'';
+    const to=document.getElementById('pendingToDate')?.value||'';
+    const cust=(document.getElementById('pendingCustomer')?.value||'').trim().toLowerCase();
+    const q=(document.getElementById('pendingSearch')?.value||'').trim().toLowerCase();
+    let arr=pendingInvoiceRows.filter(x=>{
+      const d=isoDateOnly(x.movement_at);
+      const okDate=(!from||d>=from)&&(!to||d<=to);
+      const okCust=!cust||x.customer_name.toLowerCase()===cust||x.customer_name.toLowerCase().includes(cust);
+      const okQ=!q||[x.customer_name,x.barcode,x.gas_type,x.stock_code].some(v=>String(v||'').toLowerCase().includes(q));
+      return okDate&&okCust&&okQ;
+    });
+    arr.sort((a,b)=>new Date(b.movement_at)-new Date(a.movement_at));
+    const total=arr.length;
+    const customers=new Set(arr.map(x=>x.customer_name)).size;
+    const header='<div class="card"><b>'+total+'</b> pending cylinder invoice'+(total===1?'':'s')+' across <b>'+customers+'</b> customer'+(customers===1?'':'s')+'.</div>';
+    if(!arr.length){result.innerHTML=header+'<div class="card"><p class="muted">No pending invoices match the selected filters.</p></div>';return;}
+    const rows=arr.map(x=>`<tr>
+      <td><input class="pendingPick" type="checkbox" data-id="${esc(x.id)}"></td>
+      <td>${esc(niceDate(x.movement_at))}</td>
+      <td><b>${esc(x.customer_name)}</b></td>
+      <td><b>${esc(x.barcode)}</b></td>
+      <td>${esc(x.gas_type)}</td>
+      <td>${esc(x.stock_code)}</td>
+      <td>${esc(x.current_status||'')}</td>
+      <td><input id="inv_${esc(x.id)}" class="pendingInvInput" placeholder="Invoice no."></td>
+      <td><button class="smallbtn" onclick="savePendingInvoice(${JSON.stringify(x.id)})">SAVE</button></td>
+    </tr>`).join('');
+    result.innerHTML=header+`<div class="card">
+      <div class="row">
+        <label>Invoice for selected<input id="bulkPendingInvoice" placeholder="Enter invoice number"></label>
+        <button onclick="selectAllPending(true)">SELECT ALL</button>
+        <button onclick="selectAllPending(false)">CLEAR</button>
+        <button class="primary" onclick="saveSelectedPendingInvoices()">SAVE SELECTED INVOICE</button>
+      </div>
+      <table><tr><th>✓</th><th>Date / Time</th><th>Customer</th><th>Barcode</th><th>Gas</th><th>Stock Code</th><th>Current Status</th><th>Invoice</th><th>Action</th></tr>${rows}</table>
+    </div>`;
+  };
+  window.selectAllPending=function(on){document.querySelectorAll('.pendingPick').forEach(x=>x.checked=!!on)};
+  async function updateInvoice(id,invoice){
+    if(!invoice) throw new Error('Please enter an invoice number.');
+    const r=await CylinderLive.movement({action:'UPDATE_INVOICE',movement_id:id,invoice_number:invoice});
+    if(!r.ok) throw new Error(r.error||'Invoice update failed.');
+  }
+  window.savePendingInvoice=async function(id){
+    const input=document.getElementById('inv_'+id); const invoice=input?.value.trim()||'';
+    if(!invoice){alert('Please enter the invoice number first.');return;}
+    try{
+      await updateInvoice(id,invoice);
+      alert('Invoice '+invoice+' saved successfully.');
+      await loadPendingInvoices();
+    }catch(e){alert('Invoice was not saved.\n\n'+e.message)}
+  };
+  window.saveSelectedPendingInvoices=async function(){
+    const invoice=document.getElementById('bulkPendingInvoice')?.value.trim()||'';
+    const ids=[...document.querySelectorAll('.pendingPick:checked')].map(x=>x.dataset.id);
+    if(!ids.length){alert('Select at least one pending movement.');return;}
+    if(!invoice){alert('Enter the invoice number to apply to the selected movements.');return;}
+    if(!confirm('Apply invoice '+invoice+' to '+ids.length+' selected cylinder movement'+(ids.length===1?'':'s')+'?')) return;
+    try{
+      const r=await CylinderLive.movement({action:'UPDATE_INVOICE_BULK',movement_ids:ids,invoice_number:invoice});
+      if(!r.ok) throw new Error(r.error||'Invoice update failed.');
+      alert('Invoice '+invoice+' saved for '+ids.length+' movement'+(ids.length===1?'':'s')+'.');
+      await loadPendingInvoices();
+    }catch(e){alert('Invoice update failed.\n\n'+e.message)}
+  };
+  window.printPendingInvoices=function(){
+    const body=document.getElementById('pendingInvoicesResult')?.innerHTML||'';
+    if(!body){alert('Load the report first.');return}
+    printWindow('Pending Invoices',body);
+  };
+  function reportDateValue(id){return document.getElementById(id)?.value||''}
+  function setReportDefaultDates(){
+    const today=localISODate();
+    ['supplierToDate','movementToDate'].forEach(id=>{const e=document.getElementById(id);if(e&&!e.value)e.value=today});
+    ['supplierFromDate','movementFromDate'].forEach(id=>{const e=document.getElementById(id);if(e&&!e.value){const d=new Date();d.setDate(d.getDate()-30);e.value=d.toISOString().slice(0,10)}});
+  }
+  function movementTypeLabel(t){return dailyActionLabel(t)}
+  function movementTypeClass(t){return dailyActionClass(t)}
+  function fmtReportDate(v){if(!v)return '—';const d=new Date(v);if(Number.isNaN(d.getTime()))return String(v);return d.toLocaleString('en-ZA',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}
+  async function fetchMovementReportData(fromId,toId,extra=''){
+    const from=reportDateValue(fromId),to=reportDateValue(toId);
+    let path='/rest/v1/movement_ledger?select=id,cylinder_id,movement_type,movement_at,customer_id,invoice_number,sto,notes,source&order=movement_at.desc&limit=10000';
+    if(from)path+='&movement_at=gte.'+encodeURIComponent(new Date(from+'T00:00:00').toISOString());
+    if(to){const n=new Date(to+'T00:00:00');n.setDate(n.getDate()+1);path+='&movement_at=lt.'+encodeURIComponent(n.toISOString())}
+    if(extra)path+=extra;
+    const [movements,customers,types,cylinders]=await Promise.all([
+      CylinderLive.request(path),
+      CylinderLive.request('/rest/v1/customers?select=id,name,telephone,delivery_address,email,active&order=name.asc'),
+      CylinderLive.cylinderTypes(),
+      CylinderLive.allCylinders()
+    ]);
+    const customerMap=new Map(customers.map(x=>[x.id,x]));
+    const typeMap=new Map(types.map(x=>[x.id,x]));
+    const cylMap=new Map(cylinders.map(x=>[x.id,x]));
+    const rows=movements.map(m=>{const c=cylMap.get(m.cylinder_id)||{},t=typeMap.get(c.cylinder_type_id)||{},cu=customerMap.get(m.customer_id);return {...m,barcode:c.barcode||'—',status:c.status||'',gas_type:t.gas_type||'',stock_code:t.stock_code||'',description:t.description||'',customer_name:cu?.name||'—'}});
+    return {rows,customers,types,cylinders};
+  }
+  function supplierStatusLabel(s){const m={IN_STOCK:'In Stock',WITH_CUSTOMER:'With Customer',WITH_SUPPLIER:'With Supplier',RETURNED_EMPTY:'Returned / Empty'};return m[s]||String(s||'—').replace(/_/g,' ')}
+  let supplierRows=[];
+  window.loadSupplierMovement=async function(){
+    const notice=document.getElementById('supplierReportNotice'),result=document.getElementById('supplierReportResult');notice.innerHTML='';result.innerHTML='<p class="muted">Loading live Supplier movement history…</p>';
+    try{
+      const data=await fetchMovementReportData('supplierFromDate','supplierToDate');
+      const supplierTypes=new Set(['SENT_TO_AFROX','RECEIVED_FROM_AFROX','SEND_TO_AFROX','RECEIVE']);
+      const moves=data.rows.filter(x=>supplierTypes.has(x.movement_type));
+      const groups=new Map();
+      moves.forEach(m=>{if(!groups.has(m.cylinder_id))groups.set(m.cylinder_id,[]);groups.get(m.cylinder_id).push(m)});
+      const rows=[];
+      groups.forEach(ms=>{
+        ms.sort((a,b)=>new Date(a.movement_at)-new Date(b.movement_at));
+        let lastSent=null,lastReceived=null;
+        ms.forEach(m=>{if(['SENT_TO_AFROX','SEND_TO_AFROX'].includes(m.movement_type))lastSent=m;else if(['RECEIVED_FROM_AFROX','RECEIVE'].includes(m.movement_type))lastReceived=m});
+        const cyl=data.cylinders.find(c=>c.id===ms[0].cylinder_id)||{};
+        rows.push({...ms[0],status:cyl.status||'',lastSent,lastReceived});
+      });
+      supplierRows=rows;
+      renderSupplierMovement();
+      if(!rows.length)notice.innerHTML='<p class="muted">No Supplier movements were found for the selected period.</p>';
+    }catch(e){result.innerHTML='<p class="warning"><b>Supplier Movement could not be loaded.</b><br>'+esc(e.message)+'</p>'}
+  }
+  window.renderSupplierMovement=function(){
+    const result=document.getElementById('supplierReportResult'); if(!result)return;
+    const q=(document.getElementById('supplierSearch')?.value||'').trim().toLowerCase();const sf=document.getElementById('supplierStatusFilter')?.value||'';
+    const rows=supplierRows.filter(x=>{const hay=[x.barcode,x.gas_type,x.stock_code,x.description,x.sto].join(' ').toLowerCase();return (!q||hay.includes(q))&&(!sf||x.status===sf)});
+    const sent=rows.filter(x=>x.lastSent).length,received=rows.filter(x=>x.lastReceived).length,withSupplier=rows.filter(x=>x.status==='WITH_SUPPLIER').length;
+    const body=rows.map(x=>`<tr><td>${esc(x.barcode)}</td><td>${esc(x.gas_type)}</td><td>${esc(x.stock_code)}</td><td>${esc(x.lastSent?fmtReportDate(x.lastSent.movement_at):'—')}</td><td>${esc(x.lastReceived?fmtReportDate(x.lastReceived.movement_at):'—')}</td><td>${esc(x.sto||'—')}</td><td>${esc(supplierStatusLabel(x.status))}</td></tr>`).join('');
+    result.innerHTML=`<div id="supplierPrintArea"><div class="grid"><div class="card"><b>${rows.length}</b><br><span class="muted">Cylinders shown</span></div><div class="card"><b>${sent}</b><br><span class="muted">Sent to Supplier</span></div><div class="card"><b>${received}</b><br><span class="muted">Received back</span></div><div class="card"><b>${withSupplier}</b><br><span class="muted">Currently with Supplier</span></div></div><div class="card"><table><thead><tr><th>Barcode</th><th>Gas</th><th>Stock Code</th><th>Date Sent</th><th>Date Received</th><th>STO</th><th>Current Status</th></tr></thead><tbody>${body||'<tr><td colspan="7">No matching Supplier movements.</td></tr>'}</tbody></table></div></div>`;
+  };
+  window.printSupplierMovement=function(){const body=document.getElementById('supplierPrintArea')?.innerHTML||'';if(!body){alert('Load the Supplier Movement report first.');return}printWindow('Supplier Movement',body)};
+  let movementRows=[];
+  window.loadMovementReport=async function(){
+    const notice=document.getElementById('movementReportNotice'),result=document.getElementById('movementReportResult');notice.innerHTML='';result.innerHTML='<p class="muted">Loading live movement history…</p>';
+    try{const data=await fetchMovementReportData('movementFromDate','movementToDate');movementRows=data.rows;window.movementReportCustomers=data.customers;renderMovementReport();if(!movementRows.length)notice.innerHTML='<p class="muted">No movements were found for the selected period.</p>'}
+    catch(e){result.innerHTML='<p class="warning"><b>Movement Report could not be loaded.</b><br>'+esc(e.message)+'</p>'}
+  }
+  window.renderMovementReport=function(){
+    const result=document.getElementById('movementReportResult');if(!result)return;
+    const q=(document.getElementById('movementSearch')?.value||'').trim().toLowerCase();const customer=(document.getElementById('movementCustomer')?.value||'').trim().toLowerCase();const mt=document.getElementById('movementTypeFilter')?.value||'';
+    const rows=movementRows.filter(x=>{const hay=[x.barcode,x.gas_type,x.stock_code,x.description,x.sto,x.invoice_number,x.customer_name,x.notes].join(' ').toLowerCase();return (!q||hay.includes(q))&&(!customer||x.customer_name.toLowerCase()===customer)&&(!mt||x.movement_type===mt)});
+    const counts={};rows.forEach(x=>{const k=movementTypeLabel(x.movement_type);counts[k]=(counts[k]||0)+1});const summary=Object.entries(counts).map(([k,n])=>`<span class="badge">${esc(k)}: ${n}</span>`).join(' ')||'No movements';
+    const body=rows.map(x=>`<tr><td>${esc(fmtReportDate(x.movement_at))}</td><td>${esc(x.barcode)}</td><td>${esc(x.gas_type)}</td><td>${esc(x.stock_code)}</td><td>${esc(x.customer_name)}</td><td>${esc(movementTypeLabel(x.movement_type))}</td><td>${esc(x.invoice_number||'PENDING')}</td><td>${esc(x.sto||'—')}</td><td>${esc(x.status||'—')}</td></tr>`).join('');
+    result.innerHTML=`<div id="movementPrintArea"><div class="card"><b>${rows.length}</b> movement${rows.length===1?'':'s'} found<br><div style="margin-top:8px">${summary}</div></div><div class="card"><table><thead><tr><th>Date / Time</th><th>Barcode</th><th>Gas</th><th>Stock Code</th><th>Customer</th><th>Movement</th><th>Invoice</th><th>STO</th><th>Status</th></tr></thead><tbody>${body||'<tr><td colspan="9">No matching movements.</td></tr>'}</tbody></table></div></div>`;
+  };
+  window.printMovementReport=function(){const body=document.getElementById('movementPrintArea')?.innerHTML||'';if(!body){alert('Load the Movement Report first.');return}printWindow('Movement Report',body)};
+  const oldShow=window.show;
+  window.show=function(id){oldShow(id);if(id==='pendingInvoices')setPendingDefaultDates();if(id==='supplierReport'||id==='movementReport')setReportDefaultDates();};
+})();
+</script>
+</body></html>
