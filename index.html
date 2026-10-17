@@ -40,7 +40,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
     <p id="authMessage" role="status" aria-live="polite">Checking sign-in…</p>
   </div>
 </div>
-<header><div class="wrap"><h1>CYLINDER CONTROL — VERSION 1</h1><div>Prototype based on your existing Excel workflow</div></div></header>
+<header><div class="wrap"><h1>CYLINDER CONTROL — VERSION 1</h1><div>TEST VERSION — movements are simulated and will NOT change live stock</div></div></header>
 <div class="wrap">
 <nav>
 <button class="navbtn" data-page="dashboard" onclick="show('dashboard')">Dashboard</button>
@@ -301,7 +301,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 window.CYLINDER_SUPABASE = {
   url: "https://cfgbskcdhdupstlgdbwy.supabase.co",
   publishableKey: "sb_publishable_9FdVHMqjVYN5mHc4MlaJIQ_KAqVTuxH",
-  movementFunction: "cylinder-movement",
+  movementFunction: "cylinder-movement-staging",
   allowedEmail: "jana.vheerden6@gmail.com"
 };
 if (!window.supabase || !window.supabase.createClient) {
@@ -1060,7 +1060,7 @@ refresh();
    if(!r.ok) throw new Error(d.error||d.message||("Supabase request failed: "+r.status));
    return d;
   },
-  async movement(payload){return this.request("/functions/v1/"+cfg.movementFunction,{method:"POST",body:JSON.stringify(payload)})},
+  async movement(payload){return this.request("/functions/v1/"+cfg.movementFunction,{method:"POST",body:JSON.stringify({...payload,dry_run:true})})},
   async customers(){return this.request("/rest/v1/customers?select=id,name,telephone,delivery_address,email,active&active=eq.true&order=name.asc")},
   async cylinderTypes(){return this.request("/rest/v1/cylinder_types?select=id,stock_code,gas_type,description,active&active=eq.true&order=stock_code.asc")},
   async allCylinders(){return this.request("/rest/v1/cylinders?select=id,barcode,cylinder_type_id,sto,status,customer_id,active&order=barcode.asc")},
