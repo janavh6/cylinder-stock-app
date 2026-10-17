@@ -20,9 +20,26 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 .row{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.row>*{flex:1;min-width:160px}
 #scanner{border:2px dashed #8aa1b5;border-radius:10px;padding:25px;text-align:center}
 .hidden{display:none}.success{color:#17663d;font-weight:bold}.warning{color:#a15b00;font-weight:bold}
-.dashcard{cursor:pointer;transition:transform .12s,box-shadow .12s}.dashcard:hover{transform:translateY(-2px);box-shadow:0 5px 16px #00000018}.suggestion{padding:10px;border:1px solid #dbe2e8;border-radius:7px;margin:5px 0;cursor:pointer;background:#fafcfe}.suggestion:hover{background:#eef4f8}.smallbtn{padding:7px 10px;font-size:12px}.modalish{background:#fff;border:1px solid #dbe2e8;border-radius:10px;padding:12px;margin-top:10px}</style>
+.dashcard{cursor:pointer;transition:transform .12s,box-shadow .12s}.dashcard:hover{transform:translateY(-2px);box-shadow:0 5px 16px #00000018}.suggestion{padding:10px;border:1px solid #dbe2e8;border-radius:7px;margin:5px 0;cursor:pointer;background:#fafcfe}.suggestion:hover{background:#eef4f8}.smallbtn{padding:7px 10px;font-size:12px}.modalish{background:#fff;border:1px solid #dbe2e8;border-radius:10px;padding:12px;margin-top:10px}
+/* Staged Google sign-in gate — login branch only */
+#authGate{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(13,31,49,.96);font-family:Arial,sans-serif}
+#authGate[hidden]{display:none}
+.auth-card{width:min(440px,100%);box-sizing:border-box;background:#fff;border-radius:16px;padding:30px;box-shadow:0 18px 60px rgba(0,0,0,.3);text-align:center}
+.auth-card h2{margin:0 0 10px;color:#16324f}.auth-card p{line-height:1.5;color:#445}
+.auth-card button{background:#1f7a4d;color:#fff;width:100%;margin-top:12px}
+#authMessage{min-height:1.4em;font-size:14px;color:#9b2c2c;overflow-wrap:anywhere}
+</style>
 </head>
 <body>
+<div id="authGate" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+  <div class="auth-card">
+    <h2 id="authTitle">Cylinder Stock Control</h2>
+    <p>Sign in with your approved Google account to access the stock system.</p>
+    <button id="googleSignIn" type="button">Sign in with Google</button>
+    <button id="googleSignOut" type="button" hidden>Sign out</button>
+    <p id="authMessage" role="status" aria-live="polite">Checking sign-in…</p>
+  </div>
+</div>
 <header><div class="wrap"><h1>CYLINDER CONTROL — VERSION 1</h1><div>Prototype based on your existing Excel workflow</div></div></header>
 <div class="wrap">
 <nav>
@@ -278,14 +295,27 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 </section>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* CYLINDER APP — LIVE SUPABASE CONFIGURATION */
 window.CYLINDER_SUPABASE = {
   url: "https://cfgbskcdhdupstlgdbwy.supabase.co",
   publishableKey: "sb_publishable_9FdVHMqjVYN5mHc4MlaJIQ_KAqVTuxH",
   movementFunction: "cylinder-movement",
-  legacyAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNmZ2Jza2NkaGR1cHN0bGdkYnd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3MTM3MTMsImV4cCI6MjEwNTI4OTcxM30.i9HiUiJiMybnyGHJxnn0UH-GbgzatKp2LPs5NP9I9_0"
+  allowedEmail: "jana.vheerden6@gmail.com"
 };
+if (!window.supabase || !window.supabase.createClient) {
+  document.addEventListener("DOMContentLoaded", () => {
+    const msg=document.getElementById("authMessage");
+    if(msg) msg.textContent="Sign-in could not load. Check your internet connection and refresh.";
+  });
+} else {
+  window.cylinderAuthClient = window.supabase.createClient(
+    window.CYLINDER_SUPABASE.url,
+    window.CYLINDER_SUPABASE.publishableKey,
+    { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }
+  );
+}
 </script>
 
 <script>
@@ -930,7 +960,64 @@ async function loadDailyReport(){
     window.lastDailyReport={date,rows};
   }catch(e){result.innerHTML='<p class="warning">Could not load the daily report.<br>'+dailyEscape(e.message)+'</p>'}
 }
-function printDailyReport(){if(!window.lastDailyReport||!document.getElementById('dailyReportPrintArea')?.innerHTML.trim()){alert('Please load the daily report first.');return}const w=window.open('','_blank','width=1200,height=850');if(!w){alert('Please allow pop-ups for printing.');return}const body=document.getElementById('dailyReportPrintArea').innerHTML;w.document.write('<!doctype html><html><head><title>Daily Cylinder Movement — '+esc(window.lastDailyReport.date)+'</title><style>@page{size:A4 landscape;margin:10mm}body{font-family:Arial,sans-serif;padding:0;font-size:11px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:4px 5px;text-align:left;vertical-align:middle}.card{margin:6px 0}.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.grid .card{border:1px solid #444;padding:5px}.muted{color:#555}.daily-gas-block{margin:9px 0;break-inside:avoid}.daily-gas-block h3{margin:5px 0 3px;border-bottom:2px solid #222;padding-bottom:3px}.daily-movement-table{table-layout:fixed}.daily-movement-table th:nth-child(1),.daily-movement-table td:nth-child(1){width:30%}.daily-movement-table th:nth-child(2),.daily-movement-table td:nth-child(2){width:35%}.daily-movement-table th:nth-child(3),.daily-movement-table td:nth-child(3){width:35%}.daily-customer{font-weight:700}.daily-short{font-weight:700}</style></head><body>'+body+'</body></html>');w.document.close();w.focus();w.print()}
+function printDailyReport(){if(!window.lastDailyReport||!document.getElementById('dailyReportPrintArea')?.innerHTML.trim()){alert('Please load the daily report first.');return}const w=window.open('','_blank','width=1200,height=850');if(!w){alert('Please allow pop-ups for printing.');return}const body=document.getElementById('dailyReportPrintArea').innerHTML;w.document.write('<!doctype html><html><head><title>Daily Cylinder Movement — '+esc(window.lastDailyReport.date)+'</title><style>@page{size:A4 landscape;margin:10mm}body{font-family:Arial,sans-serif;padding:0;font-size:11px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:4px 5px;text-align:left;vertical-align:middle}.card{margin:6px 0}.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.grid .card{border:1px solid #444;padding:5px}.muted{color:#555}.daily-gas-block{margin:9px 0;break-inside:avoid}.daily-gas-block h3{margin:5px 0 3px;border-bottom:2px solid #222;padding-bottom:3px}.daily-movement-table{table-layout:fixed}.daily-movement-table th:nth-child(1),.daily-movement-table td:nth-child(1){width:30%}.daily-movement-table th:nth-child(2),.daily-movement-table td:nth-child(2){width:35%}.daily-movement-table th:nth-child(3),.daily-movement-table td:nth-child(3){width:35%}.daily-customer{font-weight:700}.daily-short{font-weight:700}</style></head><body>'+body+'<script>
+/* Staged Google authentication controller — this does not change database policies. */
+(function(){
+ const cfg=window.CYLINDER_SUPABASE;
+ const client=window.cylinderAuthClient;
+ const gate=document.getElementById("authGate");
+ const message=document.getElementById("authMessage");
+ const signIn=document.getElementById("googleSignIn");
+ const signOut=document.getElementById("googleSignOut");
+ const allowed=String(cfg.allowedEmail||"").toLowerCase();
+ function setMessage(text){if(message)message.textContent=text||"";}
+ function lock(text){
+  if(gate)gate.hidden=false;
+  if(signIn)signIn.hidden=false;
+  if(signOut)signOut.hidden=true;
+  setMessage(text||"Please sign in with your approved Google account.");
+ }
+ function unlock(user){
+  const email=String(user?.email||"").toLowerCase();
+  if(email!==allowed){
+   if(client)client.auth.signOut().catch(()=>{});
+   lock("This Google account is not authorised. Please use the approved account.");
+   return;
+  }
+  if(gate)gate.hidden=true;
+  if(signIn)signIn.hidden=true;
+  if(signOut)signOut.hidden=false;
+  setMessage("");
+ }
+ if(!client){lock("Sign-in could not load. Check your internet connection and refresh.");return;}
+ if(signIn)signIn.addEventListener("click",async()=>{
+  signIn.disabled=true;setMessage("Opening Google sign-in…");
+  try{
+   const {error}=await client.auth.signInWithOAuth({
+    provider:"google",
+    options:{redirectTo:window.location.origin+window.location.pathname,queryParams:{prompt:"select_account"}}
+   });
+   if(error)throw error;
+  }catch(e){setMessage(e?.message||"Google sign-in failed.");signIn.disabled=false;}
+ });
+ if(signOut)signOut.addEventListener("click",async()=>{
+  signOut.disabled=true;
+  try{const {error}=await client.auth.signOut();if(error)throw error;lock("You have signed out.");}
+  catch(e){setMessage(e?.message||"Sign-out failed.");}
+  finally{signOut.disabled=false;}
+ });
+ client.auth.onAuthStateChange((_event,session)=>{
+  if(session?.user)unlock(session.user);
+  else lock("Please sign in with your approved Google account.");
+ });
+ client.auth.getSession().then(({data,error})=>{
+  if(error)throw error;
+  if(data.session?.user)unlock(data.session.user);
+  else lock("Please sign in with your approved Google account.");
+ }).catch(e=>lock(e?.message||"Unable to check sign-in. Refresh and try again."));
+})();
+</script>
+</body></html>');w.document.close();w.focus();w.print()}
 
 function printWindow(title,body){const w=window.open('','_blank','width=1000,height=800');if(!w){alert('Please allow pop-ups for printing.');return}w.document.write(`<!doctype html><html><head><title>${esc(title)}</title><style>body{font-family:Arial;padding:30px}table{width:100%;border-collapse:collapse}th,td{padding:8px;border-bottom:1px solid #ccc;text-align:left}.muted{color:#666}.badge{display:inline-block;margin-right:8px}</style></head><body><h1>${esc(title)}</h1>${body}</body></html>`);w.document.close();w.focus();w.print()}
 function printCustomers(){printWindow('Customer List',document.getElementById('customerTable').innerHTML)}
@@ -960,7 +1047,14 @@ refresh();
  const cfg=window.CYLINDER_SUPABASE; if(!cfg) return;
  window.CylinderLive={
   async request(path,options={}){
-   const headers=Object.assign({apikey:cfg.publishableKey,Authorization:"Bearer "+cfg.legacyAnonKey,"Content-Type":"application/json"},options.headers||{});
+   const authClient=window.cylinderAuthClient;
+   if(!authClient) throw new Error("Sign-in service is unavailable. Refresh the page and try again.");
+   const {data:{session}}=await authClient.auth.getSession();
+   const user=session?.user;
+   if(!session?.access_token||String(user?.email||"").toLowerCase()!==cfg.allowedEmail) {
+    throw new Error("Please sign in with the approved Google account before using the live database.");
+   }
+   const headers=Object.assign({apikey:cfg.publishableKey,Authorization:"Bearer "+session.access_token,"Content-Type":"application/json"},options.headers||{});
    const r=await fetch(cfg.url+path,Object.assign({},options,{headers}));
    const t=await r.text(); let d; try{d=JSON.parse(t)}catch(_){d={raw:t}}
    if(!r.ok) throw new Error(d.error||d.message||("Supabase request failed: "+r.status));
