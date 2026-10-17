@@ -961,64 +961,7 @@ async function loadDailyReport(){
     window.lastDailyReport={date,rows};
   }catch(e){result.innerHTML='<p class="warning">Could not load the daily report.<br>'+dailyEscape(e.message)+'</p>'}
 }
-function printDailyReport(){if(!window.lastDailyReport||!document.getElementById('dailyReportPrintArea')?.innerHTML.trim()){alert('Please load the daily report first.');return}const w=window.open('','_blank','width=1200,height=850');if(!w){alert('Please allow pop-ups for printing.');return}const body=document.getElementById('dailyReportPrintArea').innerHTML;w.document.write('<!doctype html><html><head><title>Daily Cylinder Movement — '+esc(window.lastDailyReport.date)+'</title><style>@page{size:A4 landscape;margin:10mm}body{font-family:Arial,sans-serif;padding:0;font-size:11px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:4px 5px;text-align:left;vertical-align:middle}.card{margin:6px 0}.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.grid .card{border:1px solid #444;padding:5px}.muted{color:#555}.daily-gas-block{margin:9px 0;break-inside:avoid}.daily-gas-block h3{margin:5px 0 3px;border-bottom:2px solid #222;padding-bottom:3px}.daily-movement-table{table-layout:fixed}.daily-movement-table th:nth-child(1),.daily-movement-table td:nth-child(1){width:30%}.daily-movement-table th:nth-child(2),.daily-movement-table td:nth-child(2){width:35%}.daily-movement-table th:nth-child(3),.daily-movement-table td:nth-child(3){width:35%}.daily-customer{font-weight:700}.daily-short{font-weight:700}</style></head><body>'+body+'<script>
-/* Staged Google authentication controller — this does not change database policies. */
-(function(){
- const cfg=window.CYLINDER_SUPABASE;
- const client=window.cylinderAuthClient;
- const gate=document.getElementById("authGate");
- const message=document.getElementById("authMessage");
- const signIn=document.getElementById("googleSignIn");
- const signOut=document.getElementById("googleSignOut");
- const allowed=String(cfg.allowedEmail||"").toLowerCase();
- function setMessage(text){if(message)message.textContent=text||"";}
- function lock(text){
-  if(gate)gate.hidden=false;
-  if(signIn)signIn.hidden=false;
-  if(signOut)signOut.hidden=true;
-  setMessage(text||"Please sign in with your approved Google account.");
- }
- function unlock(user){
-  const email=String(user?.email||"").toLowerCase();
-  if(email!==allowed){
-   if(client)client.auth.signOut().catch(()=>{});
-   lock("This Google account is not authorised. Please use the approved account.");
-   return;
-  }
-  if(gate)gate.hidden=true;
-  if(signIn)signIn.hidden=true;
-  if(signOut)signOut.hidden=false;
-  setMessage("");
- }
- if(!client){lock("Sign-in could not load. Check your internet connection and refresh.");return;}
- if(signIn)signIn.addEventListener("click",async()=>{
-  signIn.disabled=true;setMessage("Opening Google sign-in…");
-  try{
-   const {error}=await client.auth.signInWithOAuth({
-    provider:"google",
-    options:{redirectTo:window.location.origin+"/cylinder-stock-app/test.html",queryParams:{prompt:"select_account"}}
-   });
-   if(error)throw error;
-  }catch(e){setMessage(e?.message||"Google sign-in failed.");signIn.disabled=false;}
- });
- if(signOut)signOut.addEventListener("click",async()=>{
-  signOut.disabled=true;
-  try{const {error}=await client.auth.signOut();if(error)throw error;lock("You have signed out.");}
-  catch(e){setMessage(e?.message||"Sign-out failed.");}
-  finally{signOut.disabled=false;}
- });
- client.auth.onAuthStateChange((_event,session)=>{
-  if(session?.user)unlock(session.user);
-  else lock("Please sign in with your approved Google account.");
- });
- client.auth.getSession().then(({data,error})=>{
-  if(error)throw error;
-  if(data.session?.user)unlock(data.session.user);
-  else lock("Please sign in with your approved Google account.");
- }).catch(e=>lock(e?.message||"Unable to check sign-in. Refresh and try again."));
-})();
-</script>
-</body></html>');w.document.close();w.focus();w.print()}
+function printDailyReport(){if(!window.lastDailyReport||!document.getElementById('dailyReportPrintArea')?.innerHTML.trim()){alert('Please load the daily report first.');return}const w=window.open('','_blank','width=1200,height=850');if(!w){alert('Please allow pop-ups for printing.');return}const body=document.getElementById('dailyReportPrintArea').innerHTML;w.document.write('<!doctype html><html><head><title>Daily Cylinder Movement — '+esc(window.lastDailyReport.date)+'</title><style>@page{size:A4 landscape;margin:10mm}body{font-family:Arial,sans-serif;padding:0;font-size:11px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:4px 5px;text-align:left;vertical-align:middle}.card{margin:6px 0}.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.grid .card{border:1px solid #444;padding:5px}.muted{color:#555}.daily-gas-block{margin:9px 0;break-inside:avoid}.daily-gas-block h3{margin:5px 0 3px;border-bottom:2px solid #222;padding-bottom:3px}.daily-movement-table{table-layout:fixed}.daily-movement-table th:nth-child(1),.daily-movement-table td:nth-child(1){width:30%}.daily-movement-table th:nth-child(2),.daily-movement-table td:nth-child(2){width:35%}.daily-movement-table th:nth-child(3),.daily-movement-table td:nth-child(3){width:35%}.daily-customer{font-weight:700}.daily-short{font-weight:700}</style></head><body>'+body+'</body></html>');w.document.close();w.focus();w.print()}
 
 function printWindow(title,body){const w=window.open('','_blank','width=1000,height=800');if(!w){alert('Please allow pop-ups for printing.');return}w.document.write(`<!doctype html><html><head><title>${esc(title)}</title><style>body{font-family:Arial;padding:30px}table{width:100%;border-collapse:collapse}th,td{padding:8px;border-bottom:1px solid #ccc;text-align:left}.muted{color:#666}.badge{display:inline-block;margin-right:8px}</style></head><body><h1>${esc(title)}</h1>${body}</body></html>`);w.document.close();w.focus();w.print()}
 function printCustomers(){printWindow('Customer List',document.getElementById('customerTable').innerHTML)}
@@ -1368,6 +1311,63 @@ refresh();
   window.printMovementReport=function(){const body=document.getElementById('movementPrintArea')?.innerHTML||'';if(!body){alert('Load the Movement Report first.');return}printWindow('Movement Report',body)};
   const oldShow=window.show;
   window.show=function(id){oldShow(id);if(id==='pendingInvoices')setPendingDefaultDates();if(id==='supplierReport'||id==='movementReport')setReportDefaultDates();};
+})();
+</script>
+<script>
+/* Staged Google authentication controller — this does not change database policies. */
+(function(){
+ const cfg=window.CYLINDER_SUPABASE;
+ const client=window.cylinderAuthClient;
+ const gate=document.getElementById("authGate");
+ const message=document.getElementById("authMessage");
+ const signIn=document.getElementById("googleSignIn");
+ const signOut=document.getElementById("googleSignOut");
+ const allowed=String(cfg?.allowedEmail||"").toLowerCase();
+ function setMessage(text){if(message)message.textContent=text||"";}
+ function lock(text){
+  if(gate)gate.hidden=false;
+  if(signIn){signIn.hidden=false;signIn.disabled=false;}
+  if(signOut)signOut.hidden=true;
+  setMessage(text||"Please sign in with your approved Google account.");
+ }
+ function unlock(user){
+  const email=String(user?.email||"").toLowerCase();
+  if(email!==allowed){
+   if(client)client.auth.signOut().catch(()=>{});
+   lock("This Google account is not authorised. Please use the approved account.");
+   return;
+  }
+  if(gate)gate.hidden=true;
+  if(signIn)signIn.hidden=true;
+  if(signOut)signOut.hidden=false;
+  setMessage("");
+ }
+ if(!client){lock("Sign-in could not load. Check your internet connection and refresh.");return;}
+ if(signIn)signIn.addEventListener("click",async()=>{
+  signIn.disabled=true;setMessage("Opening Google sign-in…");
+  try{
+   const {error}=await client.auth.signInWithOAuth({
+    provider:"google",
+    options:{redirectTo:window.location.origin+"/cylinder-stock-app/test.html",queryParams:{prompt:"select_account"}}
+   });
+   if(error)throw error;
+  }catch(e){setMessage(e?.message||"Google sign-in failed.");signIn.disabled=false;}
+ });
+ if(signOut)signOut.addEventListener("click",async()=>{
+  signOut.disabled=true;
+  try{const {error}=await client.auth.signOut();if(error)throw error;lock("You have signed out.");}
+  catch(e){setMessage(e?.message||"Sign-out failed.");}
+  finally{signOut.disabled=false;}
+ });
+ client.auth.onAuthStateChange((_event,session)=>{
+  if(session?.user)unlock(session.user);
+  else lock("Please sign in with your approved Google account.");
+ });
+ client.auth.getSession().then(({data,error})=>{
+  if(error)throw error;
+  if(data.session?.user)unlock(data.session.user);
+  else lock("Please sign in with your approved Google account.");
+ }).catch(e=>lock(e?.message||"Unable to check sign-in. Refresh and try again."));
 })();
 </script>
 </body></html>
