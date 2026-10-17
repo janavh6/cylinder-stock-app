@@ -996,7 +996,7 @@ function printDailyReport(){if(!window.lastDailyReport||!document.getElementById
   try{
    const {error}=await client.auth.signInWithOAuth({
     provider:"google",
-    options:{redirectTo:window.location.origin+window.location.pathname,queryParams:{prompt:"select_account"}}
+    options:{redirectTo:window.location.origin+"/cylinder-stock-app/test.html",queryParams:{prompt:"select_account"}}
    });
    if(error)throw error;
   }catch(e){setMessage(e?.message||"Google sign-in failed.");signIn.disabled=false;}
