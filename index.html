@@ -298,6 +298,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* CYLINDER APP — LIVE SUPABASE CONFIGURATION */
+window.CYLINDER_STAGING_MODE = true;
 window.CYLINDER_SUPABASE = {
   url: "https://cfgbskcdhdupstlgdbwy.supabase.co",
   publishableKey: "sb_publishable_9FdVHMqjVYN5mHc4MlaJIQ_KAqVTuxH",
@@ -1052,7 +1053,12 @@ refresh();
    const {data:{session}}=await authClient.auth.getSession();
    const user=session?.user;
    if(!session?.access_token||String(user?.email||"").toLowerCase()!==cfg.allowedEmail) {
-    throw new Error("Please sign in with the approved Google account before using the live database.");
+    throw new Error("Please sign in with the approved Google account before using the database.");
+   }
+   const method=String(options.method||"GET").toUpperCase();
+   const isStagingMovement=path.startsWith("/functions/v1/cylinder-movement-staging");
+   if(window.CYLINDER_STAGING_MODE===true && !["GET","HEAD","OPTIONS"].includes(method) && !isStagingMovement) {
+    throw new Error("TEST MODE: direct database changes are disabled. This test cannot change live stock.");
    }
    const headers=Object.assign({apikey:cfg.publishableKey,Authorization:"Bearer "+session.access_token,"Content-Type":"application/json"},options.headers||{});
    const r=await fetch(cfg.url+path,Object.assign({},options,{headers}));
