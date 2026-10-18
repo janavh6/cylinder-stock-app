@@ -802,7 +802,7 @@ function toggleRentalSelection(){document.getElementById('rentalCustomerSearch')
 function fmtMoney(n){return 'R'+Number(n||0).toFixed(2)}
 function dateLabel(v){return new Date(v+'T12:00:00').toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}
 async function rentalData(){
-  const [customers,cylinders,types,openings,movements,adjustments]=await Promise.all([
+  const [customers,cylinders,types,openings,movements,adjustments,goLiveResets,goLiveBalances]=await Promise.all([
     CylinderLive.customers(),
     CylinderLive.allCylinders(),
     CylinderLive.cylinderTypes(),
