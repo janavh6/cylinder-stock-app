@@ -39,14 +39,14 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
     <p id="authMessage" role="status" aria-live="polite">Checking sign-in…</p>
   </div>
 </div>
-<header><div class="wrap"><h1>CYLINDER CONTROL — VERSION 1</h1><div>TEST VERSION — movements are simulated and will NOT change live stock</div><button id="googleSignOut" type="button" hidden style="margin-top:12px;background:#e3eaf1;color:#17202a">Sign out</button></div></header>
+<header><div class="wrap"><h1>Cylinder Control — Version 1</h1><div>TEST VERSION — movements are simulated and will NOT change live stock</div><button id="googleSignOut" type="button" hidden style="margin-top:12px;background:#e3eaf1;color:#17202a">Sign out</button></div></header>
 <div class="wrap">
 <nav>
 <button class="navbtn" data-page="dashboard" onclick="show('dashboard')">Dashboard</button>
-<button class="navbtn" data-page="out" onclick="show('out')">SCAN OUT</button>
-<button class="navbtn" data-page="return" onclick="show('return')">SCAN RETURN</button>
-<button class="navbtn" data-page="receive" onclick="show('receive')">RECEIVING</button>
-<button class="navbtn" data-page="supplierReturn" onclick="show('supplierReturn')">RETURN TO SUPPLIER</button>
+<button class="navbtn" data-page="out" onclick="show('out')">Scan Out</button>
+<button class="navbtn" data-page="return" onclick="show('return')">Scan Return</button>
+<button class="navbtn" data-page="receive" onclick="show('receive')">Receiving</button>
+<button class="navbtn" data-page="supplierReturn" onclick="show('supplierReturn')">Return To Supplier</button>
 <button class="navbtn" data-page="find" onclick="show('find')">Find Cylinder</button>
 <button class="navbtn" data-page="reports" onclick="show('reports')">Reports</button>
 <button class="navbtn" data-page="settings" onclick="show('settings')">Settings</button>
@@ -59,58 +59,58 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <div class="card dashcard" onclick="openStockWindow('With Supplier')"><div class="muted">Archived / Supplier</div><div class="big" id="afroxCount">0</div><div class="muted">Click to open</div></div>
 <div class="card dashcard" onclick="show('customers')"><div class="muted">Customers</div><div class="big" id="custCount">0</div><div class="muted">Click to open</div></div>
 </div>
-<div class="card"><h2>Quick actions</h2><button class="primary" onclick="show('out')">SCAN OUT</button>
-<button onclick="show('return')">SCAN RETURN</button><button onclick="show('find')">FIND CYLINDER</button><button onclick="show('reports')">REPORTS</button></div>
+<div class="card"><h2>Quick actions</h2><button class="primary" onclick="show('out')">Scan Out</button>
+<button onclick="show('return')">Scan Return</button><button onclick="show('find')">Find Cylinder</button><button onclick="show('reports')">Reports</button></div>
 <div class="card"><b>V1 note:</b> Camera barcode scanning is the next integration step. This prototype uses barcode entry so the complete workflow can be tested immediately.</div>
 </section>
 
 <section id="out" class="page hidden">
 <div class="card"><h2>SCAN OUT — customer first</h2>
 <div class="row"><label>Customer<input id="outCustomerSearch" list="customerList" oninput="syncOutCustomer()" placeholder="Start typing customer name..."><datalist id="customerList"></datalist></label>
-<label>Invoice (optional)<input id="outInvoice" placeholder="Leave blank for PENDING"></label></div>
+<label>Invoice (optional)<input id="outInvoice" placeholder="Leave blank for Pending"></label></div>
 <div id="scanner"><h3>Scan / enter cylinder barcode</h3>
 <input id="outBarcode" placeholder="710311 + 8 digits" onkeydown="enterAddOut(event)">
-<button class="primary" onclick="addOut()">ADD CYLINDER</button>
+<button class="primary" onclick="addOut()">Add Cylinder</button>
 <button onclick="startCameraScan('out')">📷 SCAN WITH CAMERA</button>
 <div id="outCameraMsg" class="muted"></div></div>
-<div class="card"><h3>Current delivery</h3><div id="outList"></div><button class="primary" onclick="completeOut()">COMPLETE SCAN OUT</button></div>
+<div class="card"><h3>Current delivery</h3><div id="outList"></div><button class="primary" onclick="completeOut()">Complete Scan Out</button></div>
 </div></section>
 
 <section id="return" class="page hidden">
-<div class="card"><h2>SCAN RETURN — MULTIPLE CYLINDERS</h2>
+<div class="card"><h2>Scan Return — Multiple Cylinders</h2>
 <p class="muted">Select/scan as many cylinders as you need. The app will queue them and you can complete the whole return at once.</p>
 <input id="returnBarcode" placeholder="710311 + 8 digits" onkeydown="enterReturn(event)">
-<button class="primary" onclick="addReturn()">ADD CYLINDER</button>
+<button class="primary" onclick="addReturn()">Add Cylinder</button>
 <button onclick="startCameraScan('return')">📷 SCAN WITH CAMERA</button>
 <div id="returnCameraMsg"></div>
 <div id="returnList"></div>
-<button class="primary" onclick="completeReturn()">COMPLETE RETURNS</button>
+<button class="primary" onclick="completeReturn()">Complete Returns</button>
 <div id="returnMsg"></div></div>
 </section>
 
 <section id="receive" class="page hidden">
-<div class="card"><h2>RECEIVING STOCK</h2>
+<div class="card"><h2>Receiving Stock</h2>
 <div class="row"><label>Cylinder type<select id="receiveType"></select></label>
 <label>STO / Supplier order number<input id="receiveSto" placeholder="STO (optional)"></label><label>Barcode<input id="receiveBarcode" placeholder="710311 + 8 digits" onkeydown="enterAddReceive(event)"></label></div>
-<button class="primary" onclick="addReceive()">ADD TO RECEIVING</button>
+<button class="primary" onclick="addReceive()">Add To Receiving</button>
 <button onclick="startCameraScan('receive')">📷 SCAN WITH CAMERA</button>
 <div id="receiveCameraMsg" class="muted"></div>
 <div id="receiveList"></div>
-<button class="primary" onclick="completeReceive()">COMPLETE RECEIVING</button>
+<button class="primary" onclick="completeReceive()">Complete Receiving</button>
 <hr>
 <h3>Bulk Excel import</h3><p class="muted">Required format: Gas Type, Barcode. In the full app this will import .xlsx directly and validate duplicate/unknown codes before adding stock.</p>
 <input type="file" id="excelFile" accept=".xlsx,.xls,.csv">
 </div></section>
 
 <section id="supplierReturn" class="page hidden">
- <div class="card"><h2>RETURN TO SUPPLIER</h2>
- <p class="muted">Scan Afrox cylinders currently in stock that are being returned to the supplier. This staging version only simulates the movement.</p>
+ <div class="card"><h2>Return To Supplier</h2>
+ <p class="muted">Scan cylinders currently in stock that are being returned to the supplier. This staging version only simulates the movement.</p>
  <input id="supplierReturnBarcode" placeholder="710311 + 8 digits" onkeydown="enterSupplierReturn(event)">
- <button class="primary" onclick="addSupplierReturn()">ADD CYLINDER</button>
+ <button class="primary" onclick="addSupplierReturn()">Add Cylinder</button>
  <button onclick="startCameraScan('supplierReturn')">📷 SCAN WITH CAMERA</button>
  <div id="supplierReturnCameraMsg" class="muted"></div>
  <div id="supplierReturnList"></div>
- <button class="primary" onclick="completeSupplierReturn()">COMPLETE RETURN TO SUPPLIER</button>
+ <button class="primary" onclick="completeSupplierReturn()">Complete Return To Supplier</button>
  <div id="supplierReturnMsg"></div></div>
 </section>
 
@@ -118,7 +118,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <div class="card"><h2>Customers</h2>
 <div class="row">
 <label style="position:relative">Search customer<input id="customerSearch" oninput="searchCustomers()" placeholder="Start typing a customer name..."></label>
-<button class="primary" onclick="openCustomerForm()">ADD CUSTOMER</button>
+<button class="primary" onclick="openCustomerForm()">Add Customer</button>
 <button onclick="printCustomers()">🖨 PRINT CUSTOMERS</button>
 </div>
 <div id="customerSuggestions"></div>
@@ -130,7 +130,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <input type="hidden" id="editingCustomer">
 <div class="row"><label>Customer name<input id="formCustomerName"></label><label>Telephone<input id="formCustomerPhone"></label></div>
 <label>Delivery address<input id="formCustomerAddress"></label>
-<div class="row"><button class="primary" onclick="saveCustomerForm()">SAVE CUSTOMER</button><button onclick="show('customers')">CANCEL</button></div>
+<div class="row"><button class="primary" onclick="saveCustomerForm()">Save Customer</button><button onclick="show('customers')">Cancel</button></div>
 </div></section>
 
 <section id="customerDetail" class="page hidden">
@@ -143,16 +143,16 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 
 <section id="reports" class="page hidden">
 <div class="card">
-  <h2>REPORTS CENTRE</h2>
+  <h2>Reports Centre</h2>
   <p class="muted">All office reports and printable information in one place.</p>
   <div class="grid">
-    <div class="card dashcard" onclick="show('dailyReport')"><h3>📝 Daily Cylinder Movement</h3><p class="muted">Daily OUT and RETURN movements grouped by gas type and customer.</p><button class="primary">OPEN REPORT</button></div>
-    <div class="card dashcard" onclick="openStockWindow('In Stock')"><h3>📦 Current Stock</h3><p class="muted">Live cylinders currently in stock, with barcode and stock details.</p><button>OPEN REPORT</button></div>
-    <div class="card dashcard" onclick="show('customers')"><h3>👥 Customer Cylinders</h3><p class="muted">Open a customer to see the cylinders currently held and their barcodes.</p><button>OPEN REPORT</button></div>
-    <div class="card dashcard" onclick="show('supplierReport')"><h3>🏭 Supplier Movement</h3><p class="muted">Supplier cylinders sent out and received back.</p><button>OPEN REPORT</button></div>
-    <div class="card dashcard" onclick="show('rental')"><h3>💰 Monthly Rental</h3><p class="muted">20th–19th rental period, customer totals and rental amounts.</p><button>OPEN REPORT</button></div>
-    <div class="card dashcard" onclick="show('pendingInvoices')"><h3>🧾 Pending Invoices</h3><p class="muted">Find completed cylinder OUT movements where the invoice is still pending.</p><button>OPEN REPORT</button></div>
-    <div class="card dashcard" onclick="show('movementReport')"><h3>📊 Movement Report</h3><p class="muted">Search and filter cylinder movements by date, customer, barcode or movement type.</p><button>OPEN REPORT</button></div>
+    <div class="card dashcard" onclick="show('dailyReport')"><h3>📝 Daily Cylinder Movement</h3><p class="muted">Daily OUT and RETURN movements grouped by gas type and customer.</p><button class="primary">Open Report</button></div>
+    <div class="card dashcard" onclick="openStockWindow('In Stock')"><h3>📦 Current Stock</h3><p class="muted">Live cylinders currently in stock, with barcode and stock details.</p><button>Open Report</button></div>
+    <div class="card dashcard" onclick="show('customers')"><h3>👥 Customer Cylinders</h3><p class="muted">Open a customer to see the cylinders currently held and their barcodes.</p><button>Open Report</button></div>
+    <div class="card dashcard" onclick="show('supplierReport')"><h3>🏭 Supplier Movement</h3><p class="muted">Supplier cylinders sent out and received back.</p><button>Open Report</button></div>
+    <div class="card dashcard" onclick="show('rental')"><h3>💰 Monthly Rental</h3><p class="muted">20th–19th rental period, customer totals and rental amounts.</p><button>Open Report</button></div>
+    <div class="card dashcard" onclick="show('pendingInvoices')"><h3>🧾 Pending Invoices</h3><p class="muted">Find completed cylinder OUT movements where the invoice is still pending.</p><button>Open Report</button></div>
+    <div class="card dashcard" onclick="show('movementReport')"><h3>📊 Movement Report</h3><p class="muted">Search and filter cylinder movements by date, customer, barcode or movement type.</p><button>Open Report</button></div>
   </div>
 </div>
 </section>
@@ -168,7 +168,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
     <label>To date<input id="supplierToDate" type="date"></label>
     <input id="supplierSearch" placeholder="Search barcode, gas, stock code or STO" oninput="renderSupplierMovement()">
     <select id="supplierStatusFilter" onchange="renderSupplierMovement()"><option value="">All statuses</option><option value="WITH_SUPPLIER">With Supplier</option><option value="IN_STOCK">In Stock</option><option value="WITH_CUSTOMER">With Customer</option><option value="RETURNED_EMPTY">Returned / Empty</option></select>
-    <button class="primary" onclick="loadSupplierMovement()">LOAD REPORT</button>
+    <button class="primary" onclick="loadSupplierMovement()">Load Report</button>
   </div>
   <div id="supplierReportNotice"></div>
   <div id="supplierReportResult"><p class="muted">Choose a date range and load the report.</p></div>
@@ -186,7 +186,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
     <label>To date<input id="pendingToDate" type="date"></label>
     <label>Customer<input id="pendingCustomer" list="customerList" placeholder="All customers" oninput="renderPendingInvoices()"></label>
     <input id="pendingSearch" placeholder="Search customer or barcode" oninput="renderPendingInvoices()">
-    <button class="primary" onclick="loadPendingInvoices()">LOAD PENDING</button>
+    <button class="primary" onclick="loadPendingInvoices()">Load Pending</button>
   </div>
   <div id="pendingInvoicesNotice"></div>
   <div id="pendingInvoicesResult"><p class="muted">Load the report to see outstanding invoices.</p></div>
@@ -205,7 +205,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
     <label>Customer<input id="movementCustomer" list="customerList" placeholder="All customers" oninput="renderMovementReport()"></label>
     <input id="movementSearch" placeholder="Search barcode, gas, stock code, STO or invoice" oninput="renderMovementReport()">
     <select id="movementTypeFilter" onchange="renderMovementReport()"><option value="">All movements</option><option value="SCAN_OUT">Scan Out</option><option value="SCAN_RETURN">Scan Return</option><option value="RECEIVED_FROM_AFROX">Received from Supplier</option><option value="SENT_TO_AFROX">Sent to Supplier</option></select>
-    <button class="primary" onclick="loadMovementReport()">LOAD REPORT</button>
+    <button class="primary" onclick="loadMovementReport()">Load Report</button>
   </div>
   <div id="movementReportNotice"></div>
   <div id="movementReportResult"><p class="muted">Choose filters and load the report.</p></div>
@@ -216,13 +216,13 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <div class="card"><h2>Settings</h2>
 <h3>Cylinder Types / Stock Codes</h3>
 <p class="muted">These are protected behind Settings so they are not accidentally changed during normal stock work.</p>
-<div class="row"><input id="typeCode" placeholder="Stock code e.g. 1-QD"><input id="typeGas" placeholder="Gas type e.g. OXY"><input id="typeDesc" placeholder="Description"><button class="primary" onclick="addType()">ADD TYPE</button></div>
+<div class="row"><input id="typeCode" placeholder="Stock code e.g. 1-QD"><input id="typeGas" placeholder="Gas type e.g. OXY"><input id="typeDesc" placeholder="Description"><button class="primary" onclick="addType()">Add Type</button></div>
 <div id="typeTable"></div>
 <hr>
 <div class="card">
 <h3>🔄 19 October 2026 — Go-Live Stock Take</h3>
 <p class="muted">This is the controlled reset point for the new live system. It does <b>not</b> delete previous history. You will scan the cylinders physically at your company and then scan the cylinders physically held by each customer.</p>
-<button class="primary" onclick="show('goLiveReset')">OPEN GO-LIVE STOCK TAKE</button>
+<button class="primary" onclick="show('goLiveReset')">Open Go-Live Stock Take</button>
 </div>
 </div></section>
 
@@ -238,7 +238,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <h3>1. 📦 Company Stock</h3>
 <p class="muted">Scan every cylinder physically in your warehouse on 19 October.</p>
 <input id="goLiveCompanyBarcode" placeholder="710311 + 8 digits" onkeydown="enterGoLiveCompany(event)">
-<button class="primary" onclick="addGoLiveCompany()">ADD COMPANY CYLINDER</button>
+<button class="primary" onclick="addGoLiveCompany()">Add Company Cylinder</button>
 <button onclick="startCameraScan('goLiveCompany')">📷 SCAN WITH CAMERA</button>
 <div id="goLiveCompanyCameraMsg" class="muted"></div>
 <div id="goLiveCompanyList"></div>
@@ -249,7 +249,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <p class="muted">Select a customer, then scan every cylinder physically held by that customer on 19 October.</p>
 <label>Customer<select id="goLiveCustomer"></select></label>
 <input id="goLiveCustomerBarcode" placeholder="710311 + 8 digits" onkeydown="enterGoLiveCustomer(event)">
-<button class="primary" onclick="addGoLiveCustomer()">ADD CUSTOMER CYLINDER</button>
+<button class="primary" onclick="addGoLiveCustomer()">Add Customer Cylinder</button>
 <button onclick="startCameraScan('goLiveCustomer')">📷 SCAN WITH CAMERA</button>
 <div id="goLiveCustomerCameraMsg" class="muted"></div>
 <div id="goLiveCustomerList"></div>
@@ -266,13 +266,13 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <p class="muted">Before confirming, physically compare the totals with your stock count and customer count. This action is permanent for the 19 October reset date.</p>
 <div id="goLiveReview"></div>
 <label>Reset note (optional)<input id="goLiveNotes" placeholder="e.g. Physical stock take completed 19 October 2026"></label>
-<button class="primary" onclick="confirmGoLiveReset()">CONFIRM 19 OCTOBER GO-LIVE RESET</button>
+<button class="primary" onclick="confirmGoLiveReset()">Confirm 19 October Go-Live Reset</button>
 </div>
 </div>
 </section>
 
 <section id="find" class="page hidden">
-<div class="card"><h2>Find Cylinder</h2><input id="findBarcode" placeholder="710311 + 8 digits" onkeydown="enterFind(event)"><button class="primary" onclick="findCylinder()">SEARCH</button> <button onclick="startCameraScan('find')">📷 SCAN WITH CAMERA</button><div id="findCameraMsg"></div><div id="findResult"></div></div>
+<div class="card"><h2>Find Cylinder</h2><input id="findBarcode" placeholder="710311 + 8 digits" onkeydown="enterFind(event)"><button class="primary" onclick="findCylinder()">Search</button> <button onclick="startCameraScan('find')">📷 SCAN WITH CAMERA</button><div id="findCameraMsg"></div><div id="findResult"></div></div>
 </section>
 
 <section id="rental" class="page hidden">
@@ -287,7 +287,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <label style="display:flex;align-items:center;gap:8px;padding-bottom:8px"><input style="width:auto;margin:0" type="checkbox" id="rentalAll" onchange="toggleRentalSelection()"> Show all customers on one page</label>
 </div>
 <div class="row">
-<button class="primary" onclick="rentalCalc()">CALCULATE RENTAL</button>
+<button class="primary" onclick="rentalCalc()">Calculate Rental</button>
 <button onclick="printRental()">🖨 PRINT RENTAL</button>
 </div>
 <div id="rentalNotice"></div><div id="rentalResult"></div></div>
@@ -298,7 +298,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <p class="muted">Shows all cylinder movements recorded for the selected day — including cylinders scanned out, returned, received from Supplier and sent to Supplier.</p>
 <div class="row">
 <label>Report date<input id="dailyReportDate" type="date"></label>
-<button class="primary" onclick="loadDailyReport()">LOAD REPORT</button>
+<button class="primary" onclick="loadDailyReport()">Load Report</button>
 <button onclick="printDailyReport()">🖨 PRINT DAILY REPORT</button>
 </div>
 <div id="dailyReportNotice"></div>
@@ -412,9 +412,9 @@ async function refresh(){
             <td><b>${esc(c.name)}</b></td>
             <td>${held.length}</td>
             <td>
-              <button type="button" class="smallbtn customer-action" data-action="open" data-customer="${esc(c.name)}">OPEN</button>
-              <button type="button" class="smallbtn customer-action" data-action="edit" data-customer="${esc(c.name)}">EDIT</button>
-              ${held.length===0?`<button type="button" class="smallbtn customer-action" data-action="archive" data-customer="${esc(c.name)}">ARCHIVE</button>`:''}
+              <button type="button" class="smallbtn customer-action" data-action="open" data-customer="${esc(c.name)}">Open</button>
+              <button type="button" class="smallbtn customer-action" data-action="edit" data-customer="${esc(c.name)}">Edit</button>
+              ${held.length===0?`<button type="button" class="smallbtn customer-action" data-action="archive" data-customer="${esc(c.name)}">Archive</button>`:''}
             </td>
           </tr>`;
         }).join('');
@@ -427,7 +427,7 @@ async function refresh(){
       // Keep the local type/settings table exactly as before.
       document.getElementById('typeTable').innerHTML=
         '<table><tr><th>Code</th><th>Gas</th><th>Description</th><th>Status</th><th>Action</th></tr>'+
-        db.types.map(t=>`<tr><td>${esc(t.code)}</td><td>${esc(t.gas)}</td><td>${esc(t.description)}</td><td>${t.archived?'ARCHIVED':'ACTIVE'}</td><td>${t.archived?`<button class="smallbtn" onclick="restoreType(${JSON.stringify(t.code)})">RESTORE</button>`:`<button class="smallbtn" onclick="editType(${JSON.stringify(t.code)})">EDIT</button> <button class="smallbtn" onclick="archiveOrDeleteType(${JSON.stringify(t.code)})">${typeHasHistory(t.code)?'ARCHIVE':'DELETE'}</button>`}</td></tr>`).join('')+
+        db.types.map(t=>`<tr><td>${esc(t.code)}</td><td>${esc(t.gas)}</td><td>${esc(t.description)}</td><td>${t.archived?'ARCHIVED':'ACTIVE'}</td><td>${t.archived?`<button class="smallbtn" onclick="restoreType(${JSON.stringify(t.code)})">Restore</button>`:`<button class="smallbtn" onclick="editType(${JSON.stringify(t.code)})">Edit</button> <button class="smallbtn" onclick="archiveOrDeleteType(${JSON.stringify(t.code)})">${typeHasHistory(t.code)?'ARCHIVE':'DELETE'}</button>`}</td></tr>`).join('')+
         '</table>';
 
       renderOut();
@@ -446,12 +446,12 @@ async function refresh(){
     .map(c=>{
       const n=currentCustomerCount(c), meta=db.customerMeta[c]||{};
       const archived=!!meta.archived;
-      return `<tr><td><b>${esc(c)}</b>${archived?' <span class="badge">ARCHIVED</span>':''}</td><td>${n}</td><td>
-        <button class="smallbtn" onclick="openCustomerDetail(${JSON.stringify(c)})">OPEN</button>
-        ${!archived?`<button class="smallbtn" onclick="editCustomer(${JSON.stringify(c)})">EDIT</button>`:''}
-        ${archived?`<button class="smallbtn" onclick="restoreCustomer(${JSON.stringify(c)})">RESTORE</button>`:''}
-        ${!archived&&n===0?`<button class="smallbtn" onclick="archiveCustomer(${JSON.stringify(c)})">ARCHIVE</button>`:''}
-        ${!archived&&n===0&&!customerHasHistory(c)?`<button class="smallbtn danger" onclick="deleteCustomer(${JSON.stringify(c)})">DELETE</button>`:''}
+      return `<tr><td><b>${esc(c)}</b>${archived?' <span class="badge">Archived</span>':''}</td><td>${n}</td><td>
+        <button class="smallbtn" onclick="openCustomerDetail(${JSON.stringify(c)})">Open</button>
+        ${!archived?`<button class="smallbtn" onclick="editCustomer(${JSON.stringify(c)})">Edit</button>`:''}
+        ${archived?`<button class="smallbtn" onclick="restoreCustomer(${JSON.stringify(c)})">Restore</button>`:''}
+        ${!archived&&n===0?`<button class="smallbtn" onclick="archiveCustomer(${JSON.stringify(c)})">Archive</button>`:''}
+        ${!archived&&n===0&&!customerHasHistory(c)?`<button class="smallbtn danger" onclick="deleteCustomer(${JSON.stringify(c)})">Delete</button>`:''}
       </td></tr>`;
     }).join('');
 
@@ -460,7 +460,7 @@ async function refresh(){
 
   document.getElementById('typeTable').innerHTML=
     '<table><tr><th>Code</th><th>Gas</th><th>Description</th><th>Status</th><th>Action</th></tr>'+
-    db.types.map(t=>`<tr><td>${esc(t.code)}</td><td>${esc(t.gas)}</td><td>${esc(t.description)}</td><td>${t.archived?'ARCHIVED':'ACTIVE'}</td><td>${t.archived?`<button class="smallbtn" onclick="restoreType(${JSON.stringify(t.code)})">RESTORE</button>`:`<button class="smallbtn" onclick="editType(${JSON.stringify(t.code)})">EDIT</button> <button class="smallbtn" onclick="archiveOrDeleteType(${JSON.stringify(t.code)})">${typeHasHistory(t.code)?'ARCHIVE':'DELETE'}</button>`}</td></tr>`).join('')+
+    db.types.map(t=>`<tr><td>${esc(t.code)}</td><td>${esc(t.gas)}</td><td>${esc(t.description)}</td><td>${t.archived?'ARCHIVED':'ACTIVE'}</td><td>${t.archived?`<button class="smallbtn" onclick="restoreType(${JSON.stringify(t.code)})">Restore</button>`:`<button class="smallbtn" onclick="editType(${JSON.stringify(t.code)})">Edit</button> <button class="smallbtn" onclick="archiveOrDeleteType(${JSON.stringify(t.code)})">${typeHasHistory(t.code)?'ARCHIVE':'DELETE'}</button>`}</td></tr>`).join('')+
     '</table>';
 
   renderOut();
@@ -514,7 +514,7 @@ async function openCustomerDetail(name){
           '</table></div>';
 
         document.getElementById('customerDetailActions').innerHTML=
-          held.length===0?`<button onclick="archiveCustomer(${JSON.stringify(customer.name)})">ARCHIVE CUSTOMER</button>`:'';
+          held.length===0?`<button onclick="archiveCustomer(${JSON.stringify(customer.name)})">Archive Customer</button>`:'';
 
         show('customerDetail');
         return;
@@ -538,7 +538,7 @@ async function openCustomerDetail(name){
     a.map(x=>`<tr><td>${esc(x.barcode)}</td><td>${esc(x.gas)}</td><td>${esc(x.type||'')}</td></tr>`).join('')+
     '</table></div>';
   document.getElementById('customerDetailActions').innerHTML=
-    (meta.archived?`<button onclick="restoreCustomer(${JSON.stringify(name)})">RESTORE CUSTOMER</button>`:a.length===0?`<button onclick="archiveCustomer(${JSON.stringify(name)})">ARCHIVE CUSTOMER</button>`:'');
+    (meta.archived?`<button onclick="restoreCustomer(${JSON.stringify(name)})">Restore Customer</button>`:a.length===0?`<button onclick="archiveCustomer(${JSON.stringify(name)})">Archive Customer</button>`:'');
   show('customerDetail');
 }
 function searchCustomers(){const q=document.getElementById('customerSearch').value.trim().toLowerCase(),hits=db.customers.slice().sort((a,b)=>a.localeCompare(b)).filter(c=>c.toLowerCase().includes(q)).slice(0,10);document.getElementById('customerSuggestions').innerHTML=q?hits.map(c=>`<div class="suggestion" onclick="openCustomerDetail(${JSON.stringify(c)})"><b>${esc(c)}</b>${(db.customerMeta[c]||{}).archived?' — Archived':''}</div>`).join(''):'';refresh()}
@@ -582,9 +582,9 @@ function renderLiveStock(){
   const counts={}; liveStockRows.forEach(x=>counts[x.gas_type]=(counts[x.gas_type]||0)+1);
   document.getElementById('stockWindowTitle').textContent='Cylinders — '+liveStockLabel+' — '+arr.length+' shown / '+liveStockRows.length+' total';
   const breakdown=Object.entries(counts).sort((a,b)=>a[0].localeCompare(b[0])).map(([g,n])=>`<button class="badge" onclick="document.getElementById('stockGasFilter').value=${JSON.stringify(g)};renderLiveStock()">${esc(g)}: ${n}</button>`).join(' ');
-  document.getElementById('stockWindowBody').innerHTML='<div class="card"><h3>'+esc(liveStockLabel)+' breakdown</h3>'+breakdown+(gf?` <button onclick="document.getElementById('stockGasFilter').value='';renderLiveStock()">SHOW ALL</button>`:'')+'</div>'+
+  document.getElementById('stockWindowBody').innerHTML='<div class="card"><h3>'+esc(liveStockLabel)+' breakdown</h3>'+breakdown+(gf?` <button onclick="document.getElementById('stockGasFilter').value='';renderLiveStock()">Show All</button>`:'')+'</div>'+
     '<table><tr><th>Barcode</th><th>Gas</th><th>Stock Code</th><th>Description</th><th>STO</th><th>Action</th></tr>'+
-    (arr.length?arr.map(x=>`<tr><td><b>${esc(x.barcode)}</b></td><td>${esc(x.gas_type)}</td><td>${esc(x.stock_code)}</td><td>${esc(x.description)}</td><td>${esc(x.sto||'—')}</td><td><button class="smallbtn" onclick='findLiveCylinder(${JSON.stringify(x.barcode)})'>HISTORY</button></td></tr>`).join(''):'<tr><td colspan="6">No cylinders match your search.</td></tr>')+'</table>';
+    (arr.length?arr.map(x=>`<tr><td><b>${esc(x.barcode)}</b></td><td>${esc(x.gas_type)}</td><td>${esc(x.stock_code)}</td><td>${esc(x.description)}</td><td>${esc(x.sto||'—')}</td><td><button class="smallbtn" onclick='findLiveCylinder(${JSON.stringify(x.barcode)})'>History</button></td></tr>`).join(''):'<tr><td colspan="6">No cylinders match your search.</td></tr>')+'</table>';
 }
 function findLiveCylinder(barcode){document.getElementById('findBarcode').value=barcode;show('find');findCylinder();}
 function printStockWindow(){const body=document.getElementById('stockWindowBody')?.innerHTML||'';if(!body)return;printWindow('Live Stock',body)}
@@ -605,7 +605,7 @@ function renderReturn(){
 async function addReturn(){
   const input=document.getElementById('returnBarcode'); const msg=document.getElementById('returnMsg');
   const barcode=input.value.trim(); if(!barcode)return;
-  if(!/^710311\d{8}$/.test(barcode)){msg.innerHTML='<p class="warning"><b>BARCODE NOT VALID.</b><br>It must start with 710311 and contain 8 digits after it.</p>';return;}
+  if(!/^710311\d{8}$/.test(barcode)){msg.innerHTML='<p class="warning"><b>Barcode Not Valid.</b><br>It must start with 710311 and contain 8 digits after it.</p>';return;}
   if(returnSession.some(x=>x.barcode===barcode)){msg.innerHTML='<p class="warning">This cylinder is already in the return list.</p>';input.value='';return;}
   try{
     const rows=await CylinderLive.cylindersByBarcode([barcode]);
@@ -625,13 +625,13 @@ async function completeReturn(){
     const result=await CylinderLive.movement({action:'RETURN',barcodes:items.map(x=>x.barcode)});
     if(!result.ok)throw new Error(result.error||'Returns were not completed.');
     if(result.simulated===true){
-      msg.innerHTML='<p class="success"><b>SIMULATION SUCCESSFUL.</b></p><p>'+items.length+' return(s) were accepted for testing only. No stock or local cylinder records were changed. The queued items remain available for review.</p>';
+      msg.innerHTML='<p class="success"><b>Simulation Successful.</b></p><p>'+items.length+' return(s) were accepted for testing only. No stock or local cylinder records were changed. The queued items remain available for review.</p>';
       return;
     }
     for(const x of items){const local=db.cylinders.find(c=>c.barcode===x.barcode);if(local){local.status='Returned / Empty';local.customer='';recordMovement(local,'RETURN',{customer:x.customer,returnDate:new Date().toISOString(),source:'SUPABASE'});}}
     returnSession=[]; save(); renderReturn(); document.getElementById('returnBarcode').value='';
     msg.innerHTML='<p class="success"><b>'+items.length+' RETURN'+(items.length===1?'':'S')+' COMPLETED SUCCESSFULLY.</b></p><p>All queued cylinders are now Returned / Empty.</p>';
-  }catch(e){msg.innerHTML='<p class="warning"><b>RETURNS WERE NOT COMPLETED.</b><br>No cylinder was changed in the app.<br>'+esc(e.message)+'</p>';}
+  }catch(e){msg.innerHTML='<p class="warning"><b>Returns Were Not Completed.</b><br>No cylinder was changed in the app.<br>'+esc(e.message)+'</p>';}
 }
 function enterAddReceive(e){if(e.key==='Enter'){e.preventDefault();addReceive()}}
 function addReceive(){let bc=document.getElementById('receiveBarcode').value.trim(),sel=document.getElementById('receiveType').value;let code=sel.split(' — ')[0],t=db.types.find(x=>x.code===code&&!x.archived);if(!bc||!t)return;if(!validBarcode(bc)){alert('BARCODE NOT VALID\nIt must start with 710311 and contain 8 digits after it.');return}if(db.cylinders.some(c=>c.barcode===bc)||receiveSession.some(c=>c.barcode===bc)){alert('Duplicate barcode.');return}receiveSession.push({barcode:bc,code:t.code,gas:t.gas,description:t.description});document.getElementById('receiveBarcode').value='';renderReceive()}
@@ -693,7 +693,7 @@ function renderSupplierReturn(){
 async function addSupplierReturn(){
  const input=document.getElementById('supplierReturnBarcode'),msg=document.getElementById('supplierReturnMsg');
  const barcode=input.value.trim(); if(!barcode)return;
- if(!/^710311\d{8}$/.test(barcode)){msg.innerHTML='<p class="warning"><b>BARCODE NOT VALID.</b><br>It must start with 710311 and contain 8 digits after it.</p>';return;}
+ if(!/^710311\d{8}$/.test(barcode)){msg.innerHTML='<p class="warning"><b>Barcode Not Valid.</b><br>It must start with 710311 and contain 8 digits after it.</p>';return;}
  if(supplierReturnSession.some(x=>x.barcode===barcode)){msg.innerHTML='<p class="warning">This cylinder is already in the return list.</p>';input.value='';return;}
  try{
    const rows=await CylinderLive.cylindersByBarcode([barcode]);
@@ -710,15 +710,15 @@ async function completeSupplierReturn(){
  if(!supplierReturnSession.length){msg.innerHTML='<p class="warning">No cylinders queued for return to supplier.</p>';return;}
  const items=[...supplierReturnSession];
  try{
-   const result=await CylinderLive.movement({action:'AFROX',barcodes:items.map(x=>x.barcode),note:'Return to Supplier'});
+   const result=await CylinderLive.movement({action:'SUPPLIER_RETURN',barcodes:items.map(x=>x.barcode),note:'Return to Supplier'});
    if(!result.ok)throw new Error(result.error||'Return to Supplier was not completed.');
    if(window.CYLINDER_STAGING_MODE===true){
      if(result.simulated!==true)throw new Error('STAGING SAFETY CHECK FAILED: the server did not confirm simulation. No local changes were made.');
-     msg.innerHTML='<p class="success"><b>SIMULATION SUCCESSFUL.</b></p><p>'+items.length+' cylinder(s) were accepted for Return to Supplier testing only. No stock or local cylinder records were changed. The queued items remain available for review.</p>';
+     msg.innerHTML='<p class="success"><b>Simulation Successful.</b></p><p>'+items.length+' cylinder(s) were accepted for Return to Supplier testing only. No stock or local cylinder records were changed. The queued items remain available for review.</p>';
      return;
    }
    msg.innerHTML='<p class="warning">This workflow is currently available in staging only. No local records were changed.</p>';
- }catch(e){msg.innerHTML='<p class="warning"><b>RETURN TO SUPPLIER WAS NOT COMPLETED.</b><br>No cylinder was changed in the app.<br>'+esc(e.message)+'</p>';}
+ }catch(e){msg.innerHTML='<p class="warning"><b>Return To Supplier Was Not Completed.</b><br>No cylinder was changed in the app.<br>'+esc(e.message)+'</p>';}
 }
 
 async function findCylinder(){
@@ -728,7 +728,7 @@ async function findCylinder(){
 
   if(!bc){r.innerHTML='<p class="warning">Please enter or scan a barcode.</p>';return}
   if(!validBarcode(bc)){
-    r.innerHTML='<p class="warning"><b>BARCODE NOT VALID.</b><br>It must start with 710311 and contain 8 digits after it.</p>';
+    r.innerHTML='<p class="warning"><b>Barcode Not Valid.</b><br>It must start with 710311 and contain 8 digits after it.</p>';
     return;
   }
 
@@ -795,10 +795,10 @@ async function initGoLiveReset(){
     document.getElementById('goLiveUnbarcodedInputs').innerHTML=types.map(t=>`<label>${esc(t.stock_code)} — ${esc(t.gas_type)}<input class="goLiveUnbarcoded" data-type-id="${esc(t.id)}" data-code="${esc(t.stock_code)}" type="number" min="0" step="1" value="0"></label>`).join('');
     if(resets.length){
       const r=resets[0];
-      status.innerHTML=`<p class="warning"><b>GO-LIVE RESET ALREADY COMPLETED.</b><br>${esc(r.reset_date)} — ${r.company_barcode_count} company barcode(s), ${r.customer_barcode_count} customer barcode(s), ${r.unbarcoded_company_count} unbarcoded cylinder(s).</p>`;
+      status.innerHTML=`<p class="warning"><b>Go-Live Reset Already Completed.</b><br>${esc(r.reset_date)} — ${r.company_barcode_count} company barcode(s), ${r.customer_barcode_count} customer barcode(s), ${r.unbarcoded_company_count} unbarcoded cylinder(s).</p>`;
       document.querySelectorAll('#goLiveReset input,#goLiveReset select,#goLiveReset button').forEach(el=>{if(!el.matches('button[onclick="show(\'settings\')"]'))el.disabled=true});
     }else{
-      status.innerHTML='<p class="success"><b>READY FOR 19 OCTOBER 2026.</b> No Go-Live reset has been completed yet.</p>';
+      status.innerHTML='<p class="success"><b>Ready For 19 October 2026.</b> No Go-Live reset has been completed yet.</p>';
     }
     renderGoLiveReset();
   }catch(e){status.innerHTML='<p class="warning"><b>Could not load Go-Live setup.</b><br>'+esc(e.message)+'</p>'}
@@ -851,7 +851,7 @@ async function confirmGoLiveReset(){
     if(!result.ok)throw new Error(result.error||'Go-Live reset was not completed.');
     alert('GO-LIVE RESET COMPLETED SUCCESSFULLY.\n\n19 October 2026 is now the opening balance for the live system.');
     initGoLiveReset();
-  }catch(e){document.getElementById('goLiveResetStatus').innerHTML='<p class="warning"><b>GO-LIVE RESET WAS NOT COMPLETED.</b><br>'+esc(e.message)+'</p>'}
+  }catch(e){document.getElementById('goLiveResetStatus').innerHTML='<p class="warning"><b>Go-Live Reset Was Not Completed.</b><br>'+esc(e.message)+'</p>'}
 }
 
 function rentalDateDefaults(){
@@ -935,7 +935,7 @@ async function rentalCalc(){
     wanted.forEach(c=>{
       const r=calcCustomerRental(c.id,data,period), amount=r.finalQty*rate; grand+=amount;
       const details=Object.entries(r.qty).sort((a,b)=>a[0].localeCompare(b[0])).map(([g,n])=>`<span class="badge">${esc(g)}: ${n}</span>`).join(' ')||'—';
-      html+=`<div class="card rentalCard"><h3>${esc(c.name)}</h3><p><b>Rental period:</b> ${dateLabel(period.startDate)} → ${dateLabel(period.endDate)}</p><p><b>${esc(c.name)} total: ${r.finalQty} cylinders</b></p><p><b>Rental amount:</b> ${r.finalQty} × ${fmtMoney(rate)} = <b>${fmtMoney(amount)}</b></p>${r.adjustment?`<p class="warning"><b>Manual adjustment:</b> calculated ${r.calculated} → billed ${r.finalQty}${r.adjustment.reason?` — ${esc(r.adjustment.reason)}`:''}</p>`:''}<button onclick="toggleRentalDetails(this)">SHOW MORE</button> <button class="smallbtn" onclick='rentalOverride(${JSON.stringify(c.id)},${r.calculated},${r.finalQty},${JSON.stringify(c.name)},${JSON.stringify(period.startDate)},${JSON.stringify(period.endDate)})'>EDIT TOTAL</button><div class="rentalDetails hidden"><p><b>Type breakdown at period end:</b></p>${details}</div></div>`;
+      html+=`<div class="card rentalCard"><h3>${esc(c.name)}</h3><p><b>Rental period:</b> ${dateLabel(period.startDate)} → ${dateLabel(period.endDate)}</p><p><b>${esc(c.name)} total: ${r.finalQty} cylinders</b></p><p><b>Rental amount:</b> ${r.finalQty} × ${fmtMoney(rate)} = <b>${fmtMoney(amount)}</b></p>${r.adjustment?`<p class="warning"><b>Manual adjustment:</b> calculated ${r.calculated} → billed ${r.finalQty}${r.adjustment.reason?` — ${esc(r.adjustment.reason)}`:''}</p>`:''}<button onclick="toggleRentalDetails(this)">Show More</button> <button class="smallbtn" onclick='rentalOverride(${JSON.stringify(c.id)},${r.calculated},${r.finalQty},${JSON.stringify(c.name)},${JSON.stringify(period.startDate)},${JSON.stringify(period.endDate)})'>Edit Total</button><div class="rentalDetails hidden"><p><b>Type breakdown at period end:</b></p>${details}</div></div>`;
     });
     html+=`<div class="card"><h3>Grand Total</h3><p><b>${fmtMoney(grand)}</b></p><p class="muted">Calculated from closing cylinders on ${dateLabel(period.endDate)} and the rate entered above.</p></div>`;
     result.innerHTML=html;
@@ -980,7 +980,7 @@ async function loadDailyReport(){
       '<div class="card"><div class="muted">Supplier Out</div><div class="big">'+(counts['SUPPLIER OUT']||0)+'</div></div>'+
       '</div>';
     const typeRows=Object.entries(typeCounts).sort((a,b)=>a[0].localeCompare(b[0])).map(([k,v])=>'<tr><td><b>'+dailyEscape(k)+'</b></td><td>'+v.out+'</td><td>'+v.ret+'</td><td>'+v.ain+'</td><td>'+v.aout+'</td><td>'+Object.values(v).reduce((a,n)=>a+n,0)+'</td></tr>').join('');
-    const typeTable='<div class="card"><h3>Movement summary by gas type</h3><table><tr><th>Gas type</th><th>OUT</th><th>RETURN</th><th>SUPPLIER IN</th><th>SUPPLIER OUT</th><th>TOTAL</th></tr>'+(typeRows||'<tr><td colspan="6">No movement recorded for this date.</td></tr>')+'</table></div>';
+    const typeTable='<div class="card"><h3>Movement summary by gas type</h3><table><tr><th>Gas type</th><th>Out</th><th>Return</th><th>Supplier In</th><th>Supplier Out</th><th>Total</th></tr>'+(typeRows||'<tr><td colspan="6">No movement recorded for this date.</td></tr>')+'</table></div>';
 
     // Printed-style movement sheets: gas type first, then customer, then OUT/RETURN columns.
     // Each customer gets max(OUT, RETURN) rows. If fewer returns than outs, the unmatched
@@ -1005,7 +1005,7 @@ async function loadDailyReport(){
         for(let i=0;i<n;i++){
           const out=g.outs[i];
           const ret=g.returns[i];
-          const returnText=ret?dailyEscape(ret.barcode):'<span class="daily-short">NOT RETURNED</span>';
+          const returnText=ret?dailyEscape(ret.barcode):'<span class="daily-short">Not Returned</span>';
           body+='<tr>'+
             '<td class="daily-customer">'+dailyEscape(customer)+'</td>'+
             '<td>'+dailyEscape(out?out.barcode:'')+'</td>'+
@@ -1021,7 +1021,7 @@ async function loadDailyReport(){
     const afroxRows=rows.filter(r=>['SUPPLIER IN','SUPPLIER OUT'].includes(dailyActionClass(r.movement_type))).map(r=>
       '<tr><td>'+dailyEscape(dailyActionLabel(r.movement_type))+'</td><td>'+dailyEscape(r.barcode)+'</td><td>'+dailyEscape(r.gas_type)+'</td><td>'+dailyEscape(r.sto||'')+'</td></tr>'
     ).join('');
-    const afroxTable=afroxRows?'<div class="daily-gas-block"><h3>SUPPLIER MOVEMENTS</h3><table class="daily-movement-table"><tr><th>Movement</th><th>Barcode</th><th>Gas</th><th>STO</th></tr>'+afroxRows+'</table></div>':'';
+    const afroxTable=afroxRows?'<div class="daily-gas-block"><h3>Supplier Movements</h3><table class="daily-movement-table"><tr><th>Movement</th><th>Barcode</th><th>Gas</th><th>STO</th></tr>'+afroxRows+'</table></div>':'';
 
     const customerCounts={};rows.filter(r=>dailyActionClass(r.movement_type)==='OUT').forEach(r=>{customerCounts[r.customer_name]=(customerCounts[r.customer_name]||0)+1});
     const customerReturns={};rows.filter(r=>dailyActionClass(r.movement_type)==='RETURN').forEach(r=>{customerReturns[r.customer_name]=(customerReturns[r.customer_name]||0)+1});
@@ -1267,14 +1267,14 @@ refresh();
       <td>${esc(x.stock_code)}</td>
       <td>${esc(x.current_status||'')}</td>
       <td><input id="inv_${esc(x.id)}" class="pendingInvInput" placeholder="Invoice no."></td>
-      <td><button class="smallbtn" onclick="savePendingInvoice(${JSON.stringify(x.id)})">SAVE</button></td>
+      <td><button class="smallbtn" onclick="savePendingInvoice(${JSON.stringify(x.id)})">Save</button></td>
     </tr>`).join('');
     result.innerHTML=header+`<div class="card">
       <div class="row">
         <label>Invoice for selected<input id="bulkPendingInvoice" placeholder="Enter invoice number"></label>
-        <button onclick="selectAllPending(true)">SELECT ALL</button>
-        <button onclick="selectAllPending(false)">CLEAR</button>
-        <button class="primary" onclick="saveSelectedPendingInvoices()">SAVE SELECTED INVOICE</button>
+        <button onclick="selectAllPending(true)">Select All</button>
+        <button onclick="selectAllPending(false)">Clear</button>
+        <button class="primary" onclick="saveSelectedPendingInvoices()">Save Selected Invoice</button>
       </div>
       <table><tr><th>✓</th><th>Date / Time</th><th>Customer</th><th>Barcode</th><th>Gas</th><th>Stock Code</th><th>Current Status</th><th>Invoice</th><th>Action</th></tr>${rows}</table>
     </div>`;
