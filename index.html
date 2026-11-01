@@ -1288,7 +1288,7 @@ refresh();
   async function fetchAllReportMovements(){
     const all=[]; let lastId=0; const pageSize=1000;
     while(true){
-      const page=await CylinderLive.request('/rest/v1/movement_ledger?select=id,cylinder_id,movement_type,movement_at,customer_id,invoice_number,sto,notes,source& id=gt.'.replace('& ','&')+lastId+'&order=id.asc&limit='+pageSize);
+      const page=await CylinderLive.request('/rest/v1/movement_ledger?select=id,cylinder_id,movement_type,movement_at,customer_id,invoice_number,sto,notes,source&id=gt.'+lastId+'&order=id.asc&limit='+pageSize);
       all.push(...page);
       if(page.length<pageSize) break;
       lastId=Number(page[page.length-1].id);
