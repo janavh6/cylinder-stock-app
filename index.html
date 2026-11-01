@@ -1283,6 +1283,20 @@ refresh();
   let pendingTypes=[];
   let pendingCylinders=[];
 
+  // Read the complete movement ledger in stable ID pages; PostgREST's row limit
+  // must never silently truncate operational reports.
+  async function fetchAllReportMovements(){
+    const all=[]; let lastId=0; const pageSize=1000;
+    while(true){
+      const page=await CylinderLive.request('/rest/v1/movement_ledger?select=id,cylinder_id,movement_type,movement_at,customer_id,invoice_number,sto,notes,source& id=gt.'.replace('& ','&')+lastId+'&order=id.asc&limit='+pageSize);
+      all.push(...page);
+      if(page.length<pageSize) break;
+      lastId=Number(page[page.length-1].id);
+      if(!Number.isSafeInteger(lastId)||lastId<=0) throw new Error('Could not continue movement-report pagination.');
+    }
+    return all;
+  }
+
   function isoDateOnly(v){
     if(!v) return '';
     const d=new Date(v); if(Number.isNaN(d.getTime())) return '';
@@ -1307,12 +1321,13 @@ refresh();
     result.innerHTML='';
     try{
       if(!window.CylinderLive) throw new Error('Live database connection is not available.');
-      const [customers,types,cylinders,movements]=await Promise.all([
+      const [customers,types,cylinders,allMovements]=await Promise.all([
         CylinderLive.customers(),
         CylinderLive.cylinderTypes(),
         CylinderLive.allCylinders(),
-        CylinderLive.request('/rest/v1/movement_ledger?select=id,cylinder_id,movement_type,movement_at,customer_id,invoice_number,sto,notes,source&movement_type=eq.SCAN_OUT&order=movement_at.desc&limit=10000')
+        fetchAllReportMovements()
       ]);
+      const movements=allMovements.filter(m=>m.movement_type==='SCAN_OUT');
       pendingCustomers=customers||[]; pendingTypes=types||[]; pendingCylinders=cylinders||[];
       const customerMap=new Map(pendingCustomers.map(x=>[x.id,x]));
       const typeMap=new Map(pendingTypes.map(x=>[x.id,x]));
@@ -1414,16 +1429,17 @@ refresh();
   function fmtReportDate(v){if(!v)return '—';const d=new Date(v);if(Number.isNaN(d.getTime()))return String(v);return d.toLocaleString('en-ZA',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}
   async function fetchMovementReportData(fromId,toId,extra=''){
     const from=reportDateValue(fromId),to=reportDateValue(toId);
-    let path='/rest/v1/movement_ledger?select=id,cylinder_id,movement_type,movement_at,customer_id,invoice_number,sto,notes,source&order=movement_at.desc&limit=10000';
-    if(from)path+='&movement_at=gte.'+encodeURIComponent(new Date(from+'T00:00:00').toISOString());
-    if(to){const n=new Date(to+'T00:00:00');n.setDate(n.getDate()+1);path+='&movement_at=lt.'+encodeURIComponent(n.toISOString())}
-    if(extra)path+=extra;
-    const [movements,customers,types,cylinders]=await Promise.all([
-      CylinderLive.request(path),
+    const fromTime=from?new Date(from+'T00:00:00').getTime():Number.NEGATIVE_INFINITY;
+    let toTime=Number.POSITIVE_INFINITY;
+    if(to){const n=new Date(to+'T00:00:00');n.setDate(n.getDate()+1);toTime=n.getTime();}
+    const [allMovements,customers,types,cylinders]=await Promise.all([
+      fetchAllReportMovements(),
       CylinderLive.request('/rest/v1/customers?select=id,name,telephone,delivery_address,email,active&order=name.asc'),
       CylinderLive.cylinderTypes(),
       CylinderLive.allCylinders()
     ]);
+    const movements=allMovements.filter(m=>{const t=new Date(m.movement_at).getTime();return t>=fromTime&&t<toTime;})
+      .sort((a,b)=>new Date(b.movement_at)-new Date(a.movement_at));
     const customerMap=new Map(customers.map(x=>[x.id,x]));
     const typeMap=new Map(types.map(x=>[x.id,x]));
     const cylMap=new Map(cylinders.map(x=>[x.id,x]));
