@@ -381,6 +381,11 @@ async function refresh(){
         CylinderLive.cylinderTypes()
       ]);
 
+      // Staging dashboard totals always come from live Supabase reads, never the legacy local cache.
+      document.getElementById('stockCount').textContent=cylinders.filter(x=>x.status==='IN_STOCK'&&x.active!==false).length;
+      document.getElementById('customerCount').textContent=cylinders.filter(x=>x.status==='WITH_CUSTOMER'&&x.active!==false).length;
+      document.getElementById('afroxCount').textContent=cylinders.filter(x=>x.status==='WITH_SUPPLIER'&&x.active!==false).length;
+
       const q=(document.getElementById('customerSearch')?.value||'').trim().toLowerCase();
       const typeMap=new Map(types.map(t=>[t.id,t]));
 
