@@ -902,7 +902,7 @@ async function saveCustomerRentalRate(){
   }catch(e){alert('Could not save the customer rental rate.\\n'+e.message)}
 }
 async function rentalData(){
-  const [customers,cylinders,types,movements,adjustments,goLiveResets,goLiveBalances,rates]=await Promise.all([
+  const [customers,cylinders,types,movements,adjustments,goLiveResets,goLiveBalances,rates,adjustmentAudit]=await Promise.all([
     CylinderLive.customers(),
     CylinderLive.allCylinders(),
     CylinderLive.cylinderTypes(),
@@ -910,9 +910,10 @@ async function rentalData(){
     CylinderLive.request('/rest/v1/rental_adjustments?select=id,customer_id,rental_start,rental_end,calculated_quantity,adjusted_quantity,reason,created_at&order=created_at.desc&limit=1000'),
     CylinderLive.request('/rest/v1/go_live_resets?select=id,reset_date,status&order=reset_date.desc&limit=20'),
     CylinderLive.request('/rest/v1/go_live_reset_customer_balances?select=reset_id,customer_id,gas_type,quantity&order=created_at.asc&limit=10000'),
-    CylinderLive.request('/rest/v1/customer_rental_rates?select=id,customer_id,monthly_rate,effective_from,effective_to&order=effective_from.asc')
+    CylinderLive.request('/rest/v1/customer_rental_rates?select=id,customer_id,monthly_rate,effective_from,effective_to&order=effective_from.asc'),
+    CylinderLive.request('/rest/v1/rental_adjustment_audit?select=id,customer_id,rental_start,rental_end,previous_adjusted_quantity,new_adjusted_quantity,reason,changed_at&order=changed_at.desc&limit=1000')
   ]);
-  return {customers,cylinders,types,movements,adjustments,goLiveResets,goLiveBalances,rates};
+  return {customers,cylinders,types,movements,adjustments,goLiveResets,goLiveBalances,rates,adjustmentAudit};
 }
 function calcCustomerRental(customerId, data, period){
   const typeMap=new Map(data.types.map(t=>[t.id,t]));
@@ -934,14 +935,23 @@ function calcCustomerRental(customerId, data, period){
   Object.keys(qty).forEach(k=>{if(qty[k]===0)delete qty[k]});
   const calculated=Object.values(qty).reduce((a,b)=>a+b,0);
   const adjustment=data.adjustments.find(a=>a.customer_id===customerId && a.rental_start===rateDate && a.rental_end===period.endDate);
+  const adjustmentHistory=(data.adjustmentAudit||[]).filter(a=>a.customer_id===customerId && a.rental_start===rateDate && a.rental_end===period.endDate);
   const finalQty=adjustment&&adjustment.adjusted_quantity!=null?Number(adjustment.adjusted_quantity):calculated;
   const negative=Object.entries(qty).filter(([_,n])=>n<0);
-  return {qty,calculated,finalQty,adjustment,moves,needsOpeningBalance:false,negative,rate,rateDate,billingStartDate:rateDate};
+  return {qty,calculated,finalQty,adjustment,adjustmentHistory,moves,needsOpeningBalance:false,negative,rate,rateDate,billingStartDate:rateDate};
 }
 async function saveRentalAdjustment(customerId,startDate,endDate,calculated,adjusted,reason){
   if(!reason||!reason.trim())throw new Error('A reason is required for a manual rental adjustment.');
   const body={customer_id:customerId,rental_start:startDate,rental_end:endDate,calculated_quantity:calculated,adjusted_quantity:adjusted,reason:reason.trim()};
   return CylinderLive.request('/rest/v1/rental_adjustments?on_conflict=customer_id,rental_start,rental_end',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify(body)});
+}
+function renderAdjustmentHistory(history){
+  if(!history||!history.length)return '';
+  return '<p><b>Manual adjustment history:</b></p><ul>'+history.map(a=>
+    '<li>'+esc(new Date(a.changed_at).toLocaleString())+': '+
+    (a.previous_adjusted_quantity==null?'no previous override':esc(a.previous_adjusted_quantity))+' → '+
+    (a.new_adjusted_quantity==null?'calculated':esc(a.new_adjusted_quantity))+' — '+esc(a.reason)+'</li>'
+  ).join('')+'</ul>';
 }
 function rentalOverride(customerId,calculated,current,customerName,startDate,endDate){
   const v=prompt(`Rental quantity for ${customerName}\n\nCalculated closing quantity: ${calculated}\nCurrent billed quantity: ${current}\n\nEnter the quantity to bill:`,String(current));
@@ -970,7 +980,7 @@ async function rentalCalc(){
       if(hasNegative)notice.innerHTML+='<p class="warning"><b>Balance exception:</b> '+esc(c.name)+' has a negative cylinder quantity and is excluded from the rental total until reconciled.</p>';
       if(missingRate)notice.innerHTML+='<p class="warning"><b>Rate missing:</b> '+esc(c.name)+' has no customer-specific rate effective from '+esc(r.rateDate||'the period start')+'.</p>';
       const details=Object.entries(r.qty).sort((a,b)=>a[0].localeCompare(b[0])).map(([g,n])=>`<span class="badge">${esc(g)}: ${n}</span>`).join(' ')||'—';
-      html+=`<div class="card rentalCard"><h3>${esc(c.name)}</h3><p><b>Rental period:</b> ${dateLabel(r.billingStartDate||period.startDate)} → ${dateLabel(period.endDate)}</p><p><b>${esc(c.name)} total: ${r.finalQty} cylinders</b></p><p><b>Applied monthly rate:</b> ${r.rate?fmtMoney(r.rate.monthly_rate):'No rate set'} (effective ${esc(r.rateDate||'—')})</p><p><b>Rental amount:</b> ${(hasNegative||missingRate)?'Not calculated — review balance or rate':r.finalQty+' × '+fmtMoney(r.rate?.monthly_rate||0)+' = '+fmtMoney(amount)}</p>${r.adjustment?`<p class="warning"><b>Manual adjustment:</b> calculated ${r.calculated} → billed ${r.finalQty}${r.adjustment.reason?` — ${esc(r.adjustment.reason)}`:''}</p>`:''}<button onclick="toggleRentalDetails(this)">Show More</button> <button class="smallbtn" onclick='rentalOverride(${JSON.stringify(c.id)},${r.calculated},${r.finalQty},${JSON.stringify(c.name)},${JSON.stringify(r.billingStartDate||period.startDate)},${JSON.stringify(period.endDate)})'>Edit Total</button><div class="rentalDetails hidden"><p><b>Type breakdown at period end:</b></p>${details}</div></div>`;
+      html+=`<div class="card rentalCard"><h3>${esc(c.name)}</h3><p><b>Rental period:</b> ${dateLabel(r.billingStartDate||period.startDate)} → ${dateLabel(period.endDate)}</p><p><b>${esc(c.name)} total: ${r.finalQty} cylinders</b></p><p><b>Applied monthly rate:</b> ${r.rate?fmtMoney(r.rate.monthly_rate):'No rate set'} (effective ${esc(r.rateDate||'—')})</p><p><b>Rental amount:</b> ${(hasNegative||missingRate)?'Not calculated — review balance or rate':r.finalQty+' × '+fmtMoney(r.rate?.monthly_rate||0)+' = '+fmtMoney(amount)}</p>${r.adjustment?`<p class="warning"><b>Manual adjustment:</b> calculated ${r.calculated} → billed ${r.finalQty}${r.adjustment.reason?` — ${esc(r.adjustment.reason)}`:''}</p>`:''}<button onclick="toggleRentalDetails(this)">Show More</button> <button class="smallbtn" onclick='rentalOverride(${JSON.stringify(c.id)},${r.calculated},${r.finalQty},${JSON.stringify(c.name)},${JSON.stringify(r.billingStartDate||period.startDate)},${JSON.stringify(period.endDate)})'>Edit Total</button><div class="rentalDetails hidden"><p><b>Type breakdown at period end:</b></p>${details}${renderAdjustmentHistory(r.adjustmentHistory)}</div></div>`;
     });
     html+=`<div class="card"><h3>Grand Total</h3><p><b>${fmtMoney(grand)}</b></p><p class="muted">Calculated from closing cylinders on ${dateLabel(period.endDate)} and each customer’s effective monthly rate.</p></div>`;
     result.innerHTML=html;
