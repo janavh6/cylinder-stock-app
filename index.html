@@ -875,7 +875,7 @@ async function loadCustomerRentalRates(){
   table.innerHTML='<p class="muted">Loading customer rates…</p>';
   try{
     const [customers,rates]=await Promise.all([
-      CylinderLive.customers(),
+      CylinderLive.request('/rest/v1/customers?select=id,name,active&order=name.asc'),
       CylinderLive.request('/rest/v1/customer_rental_rates?select=id,customer_id,monthly_rate,effective_from,effective_to,notes,created_at&order=customer_id.asc,effective_from.desc')
     ]);
     select.innerHTML=customers.filter(x=>x.active!==false).sort((a,b)=>a.name.localeCompare(b.name)).map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('');
