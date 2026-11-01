@@ -1196,6 +1196,10 @@ refresh();
    const customers=await CylinderLive.customers();
    const customer=customers.find(c=>c.name.toLowerCase()===custName.toLowerCase());
    if(!customer){alert('Please select an active customer from the list.');return}
+   if(outSession.length && outSession[0].customerId!==customer.id){
+    alert('This delivery already contains cylinders for '+outSession[0].customer+'. Please complete or clear that batch before selecting a different customer.');
+    return;
+   }
    const rows=await CylinderLive.cylindersByBarcode([bc]);
    if(!rows.length){alert('Barcode not found in the live stock database.');return}
    const cylinder=rows[0];
