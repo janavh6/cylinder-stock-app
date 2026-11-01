@@ -249,7 +249,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 
 <div class="card">
 <h3>1. 📦 Company Stock</h3>
-<p class="muted">Scan every cylinder physically in your warehouse on 19 October.</p>
+<p class="muted">Scan every cylinder physically in your warehouse on 9 November.</p>
 <input id="goLiveCompanyBarcode" placeholder="710311 + 8 digits" onkeydown="enterGoLiveCompany(event)">
 <button class="primary" onclick="addGoLiveCompany()">Add Company Cylinder</button>
 <button onclick="startCameraScan('goLiveCompany')">📷 SCAN WITH CAMERA</button>
@@ -259,7 +259,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 
 <div class="card">
 <h3>2. 👥 Customer Opening Stock</h3>
-<p class="muted">Select a customer, then scan every cylinder physically held by that customer on 19 October.</p>
+<p class="muted">Select a customer, then scan every cylinder physically held by that customer on 9 November.</p>
 <label>Customer<select id="goLiveCustomer"></select></label>
 <input id="goLiveCustomerBarcode" placeholder="710311 + 8 digits" onkeydown="enterGoLiveCustomer(event)">
 <button class="primary" onclick="addGoLiveCustomer()">Add Customer Cylinder</button>
@@ -276,10 +276,10 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 
 <div class="card">
 <h3>4. Review & Confirm</h3>
-<p class="muted">Before confirming, physically compare the totals with your stock count and customer count. This action is permanent for the 19 October reset date.</p>
+<p class="muted">Before confirming, physically compare the totals with your stock count and customer count. This action is permanent for the 9 November reset date.</p>
 <div id="goLiveReview"></div>
 <label>Reset note (optional)<input id="goLiveNotes" placeholder="e.g. Physical stock take completed 9 November 2026"></label>
-<button class="primary" onclick="confirmGoLiveReset()">Confirm 19 October Go-Live Reset</button>
+<button class="primary" onclick="confirmGoLiveReset()">Confirm 9 November Go-Live Reset</button>
 </div>
 </div>
 </section>
@@ -301,9 +301,10 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 </div>
 <div class="row">
 <button class="primary" onclick="rentalCalc()">Calculate Rental</button>
+<button class="primary" onclick="finalizeRentalReport()">Finalise Monthly Rental Report</button>
 <button onclick="printRental()">🖨 PRINT RENTAL</button>
 </div>
-<div id="rentalNotice"></div><div id="rentalResult"></div></div>
+<div id="rentalNotice"></div><div id="rentalResult"></div><hr><h3>Finalised Rental Reports</h3><div id="rentalReportHistory"><p class="muted">Loading report history…</p></div></div>
 </section>
 
 <section id="dailyReport" class="page hidden">
@@ -378,7 +379,7 @@ ensureMovementLedger();
 let outSession=[], receiveSession=[], cameraStream=null, cameraMode='';
 const BARCODE_RE=/^710311\d{8}$/;
 function save(){localStorage.setItem('cylDB',JSON.stringify(db));refresh();}
-function show(id){stopCameraScan();document.querySelectorAll('.page').forEach(x=>x.classList.add('hidden'));document.getElementById(id).classList.remove('hidden');document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.page===id));refresh();if(id==='goLiveReset')initGoLiveReset();if(id==='settings')loadCustomerRentalRates();}
+function show(id){stopCameraScan();document.querySelectorAll('.page').forEach(x=>x.classList.add('hidden'));document.getElementById(id).classList.remove('hidden');document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.page===id));refresh();if(id==='goLiveReset')initGoLiveReset();if(id==='settings')loadCustomerRentalRates();if(id==='rental')loadRentalReportHistory();}
 function opts(id,arr){document.getElementById(id).innerHTML=arr.map(x=>`<option>${esc(x)}</option>`).join('')}
 function esc(x){return String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function validBarcode(bc){return BARCODE_RE.test(bc)}
@@ -932,10 +933,10 @@ function calcCustomerRental(customerId, data, period){
   });
   Object.keys(qty).forEach(k=>{if(qty[k]===0)delete qty[k]});
   const calculated=Object.values(qty).reduce((a,b)=>a+b,0);
-  const adjustment=data.adjustments.find(a=>a.customer_id===customerId && a.rental_start===period.startDate && a.rental_end===period.endDate);
+  const adjustment=data.adjustments.find(a=>a.customer_id===customerId && a.rental_start===rateDate && a.rental_end===period.endDate);
   const finalQty=adjustment&&adjustment.adjusted_quantity!=null?Number(adjustment.adjusted_quantity):calculated;
   const negative=Object.entries(qty).filter(([_,n])=>n<0);
-  return {qty,calculated,finalQty,adjustment,moves,needsOpeningBalance:false,negative,rate,rateDate};
+  return {qty,calculated,finalQty,adjustment,moves,needsOpeningBalance:false,negative,rate,rateDate,billingStartDate:rateDate};
 }
 async function saveRentalAdjustment(customerId,startDate,endDate,calculated,adjusted,reason){
   if(!reason||!reason.trim())throw new Error('A reason is required for a manual rental adjustment.');
@@ -969,12 +970,34 @@ async function rentalCalc(){
       if(hasNegative)notice.innerHTML+='<p class="warning"><b>Balance exception:</b> '+esc(c.name)+' has a negative cylinder quantity and is excluded from the rental total until reconciled.</p>';
       if(missingRate)notice.innerHTML+='<p class="warning"><b>Rate missing:</b> '+esc(c.name)+' has no customer-specific rate effective from '+esc(r.rateDate||'the period start')+'.</p>';
       const details=Object.entries(r.qty).sort((a,b)=>a[0].localeCompare(b[0])).map(([g,n])=>`<span class="badge">${esc(g)}: ${n}</span>`).join(' ')||'—';
-      html+=`<div class="card rentalCard"><h3>${esc(c.name)}</h3><p><b>Rental period:</b> ${dateLabel(period.startDate)} → ${dateLabel(period.endDate)}</p><p><b>${esc(c.name)} total: ${r.finalQty} cylinders</b></p><p><b>Applied monthly rate:</b> ${r.rate?fmtMoney(r.rate.monthly_rate):'No rate set'} (effective ${esc(r.rateDate||'—')})</p><p><b>Rental amount:</b> ${(hasNegative||missingRate)?'Not calculated — review balance or rate':r.finalQty+' × '+fmtMoney(r.rate?.monthly_rate||0)+' = '+fmtMoney(amount)}</p>${r.adjustment?`<p class="warning"><b>Manual adjustment:</b> calculated ${r.calculated} → billed ${r.finalQty}${r.adjustment.reason?` — ${esc(r.adjustment.reason)}`:''}</p>`:''}<button onclick="toggleRentalDetails(this)">Show More</button> <button class="smallbtn" onclick='rentalOverride(${JSON.stringify(c.id)},${r.calculated},${r.finalQty},${JSON.stringify(c.name)},${JSON.stringify(period.startDate)},${JSON.stringify(period.endDate)})'>Edit Total</button><div class="rentalDetails hidden"><p><b>Type breakdown at period end:</b></p>${details}</div></div>`;
+      html+=`<div class="card rentalCard"><h3>${esc(c.name)}</h3><p><b>Rental period:</b> ${dateLabel(r.billingStartDate||period.startDate)} → ${dateLabel(period.endDate)}</p><p><b>${esc(c.name)} total: ${r.finalQty} cylinders</b></p><p><b>Applied monthly rate:</b> ${r.rate?fmtMoney(r.rate.monthly_rate):'No rate set'} (effective ${esc(r.rateDate||'—')})</p><p><b>Rental amount:</b> ${(hasNegative||missingRate)?'Not calculated — review balance or rate':r.finalQty+' × '+fmtMoney(r.rate?.monthly_rate||0)+' = '+fmtMoney(amount)}</p>${r.adjustment?`<p class="warning"><b>Manual adjustment:</b> calculated ${r.calculated} → billed ${r.finalQty}${r.adjustment.reason?` — ${esc(r.adjustment.reason)}`:''}</p>`:''}<button onclick="toggleRentalDetails(this)">Show More</button> <button class="smallbtn" onclick='rentalOverride(${JSON.stringify(c.id)},${r.calculated},${r.finalQty},${JSON.stringify(c.name)},${JSON.stringify(r.billingStartDate||period.startDate)},${JSON.stringify(period.endDate)})'>Edit Total</button><div class="rentalDetails hidden"><p><b>Type breakdown at period end:</b></p>${details}</div></div>`;
     });
-    html+=`<div class="card"><h3>Grand Total</h3><p><b>${fmtMoney(grand)}</b></p><p class="muted">Calculated from closing cylinders on ${dateLabel(period.endDate)} and the rate entered above.</p></div>`;
+    html+=`<div class="card"><h3>Grand Total</h3><p><b>${fmtMoney(grand)}</b></p><p class="muted">Calculated from closing cylinders on ${dateLabel(period.endDate)} and each customer’s effective monthly rate.</p></div>`;
     result.innerHTML=html;
     window.lastRental={period,html};
   }catch(e){result.innerHTML='<p class="warning"><b>Rental could not be calculated.</b><br>'+esc(e.message)+'</p>'}
+}
+async function finalizeRentalReport(){
+  const period=rentalPeriod();
+  if(!window.lastRental||window.lastRental.period.endDate!==period.endDate){alert('Please calculate the rental report for this period before finalising it.');return}
+  const notes=prompt('Report note (required only when creating a correction version):','');
+  if(notes===null)return;
+  if(!confirm('FINALISE RENTAL REPORT\\n\\nPeriod ending: '+period.endDate+'\\n\\nThe saved report will preserve the customer quantities and rates used today. A finalised report cannot be edited. Continue?'))return;
+  const notice=document.getElementById('rentalNotice');
+  try{
+    const result=await CylinderLive.request('/rest/v1/rpc/finalize_rental_report',{method:'POST',body:JSON.stringify({p_period_start:period.startDate,p_period_end:period.endDate,p_notes:notes.trim()||null})});
+    notice.innerHTML='<p class="success"><b>Rental report finalised.</b><br>Version '+esc(result.report_version)+' — '+esc(result.line_count)+' customer line(s) — '+fmtMoney(result.total_amount)+'. This saved report is now locked.</p>';
+    await loadRentalReportHistory();
+  }catch(e){notice.innerHTML='<p class="warning"><b>Rental report was not finalised.</b><br>'+esc(e.message)+'</p>'}
+}
+async function loadRentalReportHistory(){
+  const target=document.getElementById('rentalReportHistory');if(!target)return;
+  target.innerHTML='<p class="muted">Loading report history…</p>';
+  try{
+    const rows=await CylinderLive.request('/rest/v1/rental_reports?select=id,period_start,period_end,report_version,status,total_amount,finalized_at&order=period_end.desc,report_version.desc&limit=20');
+    if(!rows.length){target.innerHTML='<p class="muted">No finalised rental reports yet.</p>';return}
+    target.innerHTML='<table><tr><th>Period</th><th>Version</th><th>Status</th><th>Total</th><th>Finalised</th></tr>'+rows.map(r=>`<tr><td>${esc(r.period_start)} → ${esc(r.period_end)}</td><td>${esc(r.report_version)}</td><td>${esc(r.status)}</td><td>${fmtMoney(r.total_amount)}</td><td>${esc(r.finalized_at?new Date(r.finalized_at).toLocaleString():'—')}</td></tr>`).join('')+'</table>';
+  }catch(e){target.innerHTML='<p class="warning"><b>Could not load rental report history.</b><br>'+esc(e.message)+'</p>'}
 }
 function toggleRentalDetails(btn){const d=btn.nextElementSibling.nextElementSibling;d.classList.toggle('hidden');btn.textContent=d.classList.contains('hidden')?'SHOW MORE':'SHOW LESS'}
 function localISODate(){const d=new Date();const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');const day=String(d.getDate()).padStart(2,'0');return y+'-'+m+'-'+day}
