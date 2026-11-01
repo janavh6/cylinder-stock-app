@@ -536,32 +536,40 @@ function archiveOrDeleteType(code){const t=db.types.find(x=>x.code===code);if(!t
 function restoreType(code){const t=db.types.find(x=>x.code===code);if(t){t.archived=false;save()}}
 function syncOutCustomer(){}
 function syncRentalCustomer(){}
-let liveStockRows=[], liveStockTypes=[];
+let liveStockRows=[], liveStockTypes=[], liveStockStatus='IN_STOCK', liveStockLabel='In Stock';
 async function openStockWindow(status='In Stock'){
+  const statusConfig={
+    'In Stock':{value:'IN_STOCK',label:'In Stock'},
+    'With Customer':{value:'WITH_CUSTOMER',label:'With Customers'},
+    'With Supplier':{value:'WITH_SUPPLIER',label:'Archived / Supplier'}
+  };
+  const selected=statusConfig[status]||statusConfig['In Stock'];
+  liveStockStatus=selected.value;
+  liveStockLabel=selected.label;
   show('stockWindow');
-  document.getElementById('stockWindowTitle').textContent='Cylinders In Stock';
-  document.getElementById('stockWindowBody').innerHTML='<p class="muted">Loading live stock from Supabase…</p>';
+  document.getElementById('stockWindowTitle').textContent='Cylinders — '+liveStockLabel;
+  document.getElementById('stockWindowBody').innerHTML='<p class="muted">Loading live cylinders from Supabase…</p>';
   try{
     if(!window.CylinderLive) throw new Error('Live database connection is not available.');
     const [cylinders,types]=await Promise.all([CylinderLive.allCylinders(),CylinderLive.cylinderTypes()]);
     const typeMap=new Map(types.map(t=>[t.id,t]));
     liveStockTypes=types.slice();
-    liveStockRows=cylinders.filter(c=>c.status==='IN_STOCK'&&c.active!==false).map(c=>{const t=typeMap.get(c.cylinder_type_id)||{};return {...c,stock_code:t.stock_code||'',gas_type:t.gas_type||'',description:t.description||''};});
+    liveStockRows=cylinders.filter(c=>c.status===liveStockStatus&&c.active!==false).map(c=>{const t=typeMap.get(c.cylinder_type_id)||{};return {...c,stock_code:t.stock_code||'',gas_type:t.gas_type||'',description:t.description||''};});
     const sel=document.getElementById('stockGasFilter');
     const current=sel.value;
     sel.innerHTML='<option value="">All gas types</option>'+[...new Set(liveStockRows.map(x=>x.gas_type).filter(Boolean))].sort().map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('');
     if([...sel.options].some(o=>o.value===current)) sel.value=current;
     renderLiveStock();
-  }catch(e){document.getElementById('stockWindowBody').innerHTML='<p class="warning">Could not load live stock.<br>'+esc(e.message)+'</p>';}
+  }catch(e){document.getElementById('stockWindowBody').innerHTML='<p class="warning">Could not load live cylinders.<br>'+esc(e.message)+'</p>';}
 }
 function renderLiveStock(){
   const q=(document.getElementById('stockSearch')?.value||'').trim().toLowerCase();
   const gf=document.getElementById('stockGasFilter')?.value||'';
   const arr=liveStockRows.filter(x=>(!gf||x.gas_type===gf)&&(!q||[x.barcode,x.gas_type,x.stock_code,x.description,x.sto].some(v=>String(v||'').toLowerCase().includes(q))));
   const counts={}; liveStockRows.forEach(x=>counts[x.gas_type]=(counts[x.gas_type]||0)+1);
-  document.getElementById('stockWindowTitle').textContent='Cylinders In Stock — '+arr.length+' shown / '+liveStockRows.length+' total';
+  document.getElementById('stockWindowTitle').textContent='Cylinders — '+liveStockLabel+' — '+arr.length+' shown / '+liveStockRows.length+' total';
   const breakdown=Object.entries(counts).sort((a,b)=>a[0].localeCompare(b[0])).map(([g,n])=>`<button class="badge" onclick="document.getElementById('stockGasFilter').value=${JSON.stringify(g)};renderLiveStock()">${esc(g)}: ${n}</button>`).join(' ');
-  document.getElementById('stockWindowBody').innerHTML='<div class="card"><h3>Live stock breakdown</h3>'+breakdown+(gf?` <button onclick="document.getElementById('stockGasFilter').value='';renderLiveStock()">SHOW ALL</button>`:'')+'</div>'+
+  document.getElementById('stockWindowBody').innerHTML='<div class="card"><h3>'+esc(liveStockLabel)+' breakdown</h3>'+breakdown+(gf?` <button onclick="document.getElementById('stockGasFilter').value='';renderLiveStock()">SHOW ALL</button>`:'')+'</div>'+
     '<table><tr><th>Barcode</th><th>Gas</th><th>Stock Code</th><th>Description</th><th>STO</th><th>Action</th></tr>'+
     (arr.length?arr.map(x=>`<tr><td><b>${esc(x.barcode)}</b></td><td>${esc(x.gas_type)}</td><td>${esc(x.stock_code)}</td><td>${esc(x.description)}</td><td>${esc(x.sto||'—')}</td><td><button class="smallbtn" onclick='findLiveCylinder(${JSON.stringify(x.barcode)})'>HISTORY</button></td></tr>`).join(''):'<tr><td colspan="6">No cylinders match your search.</td></tr>')+'</table>';
 }
