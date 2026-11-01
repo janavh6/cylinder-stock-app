@@ -220,6 +220,19 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <div id="typeTable"></div>
 <hr>
 <div class="card">
+<h3>Customer Monthly Rental Rates</h3>
+<p class="muted">Set one monthly rental rate per customer. The rate applies to all cylinder types held by that customer. A new effective date preserves the previous rate history.</p>
+<div class="row">
+<label>Customer<select id="rentalRateCustomer"></select></label>
+<label>Monthly rate (R)<input id="rentalRateAmount" type="number" min="0" step="0.01" placeholder="0.00"></label>
+<label>Effective from<input id="rentalRateEffectiveFrom" type="date" value="2026-11-09"></label>
+</div>
+<label>Note (optional)<input id="rentalRateNotes" placeholder="Reason for rate change"></label>
+<button class="primary" onclick="saveCustomerRentalRate()">Save Customer Rate</button>
+<div id="customerRentalRateTable"><p class="muted">Loading customer rates…</p></div>
+</div>
+<hr>
+<div class="card">
 <h3>🔄 9 November 2026 — Go-Live Stock Take</h3>
 <p class="muted">This is the controlled reset point for the new live system. It does <b>not</b> delete previous history. You will scan the cylinders physically at your company and then scan the cylinders physically held by each customer.</p>
 <button class="primary" onclick="show('goLiveReset')">Open Go-Live Stock Take</button>
@@ -280,7 +293,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <p>Rental period: <b>20th of previous month → 19th of current month</b>.</p>
 <div class="row">
 <label>Period ending<input id="rentalEndDate" type="date"></label>
-<label>Temporary test rate per cylinder — not for billing<input id="rentalRate" type="number" step="0.01" min="0" value="0"></label>
+<p class="muted">Each customer has an individual monthly rate. Manage customer rates under Settings → Customer Monthly Rental Rates.</p>
 </div>
 <div class="row">
 <label>Customer<input id="rentalCustomerSearch" list="customerList" placeholder="Start typing customer name..."></label>
@@ -365,7 +378,7 @@ ensureMovementLedger();
 let outSession=[], receiveSession=[], cameraStream=null, cameraMode='';
 const BARCODE_RE=/^710311\d{8}$/;
 function save(){localStorage.setItem('cylDB',JSON.stringify(db));refresh();}
-function show(id){stopCameraScan();document.querySelectorAll('.page').forEach(x=>x.classList.add('hidden'));document.getElementById(id).classList.remove('hidden');document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.page===id));refresh();if(id==='goLiveReset')initGoLiveReset();}
+function show(id){stopCameraScan();document.querySelectorAll('.page').forEach(x=>x.classList.add('hidden'));document.getElementById(id).classList.remove('hidden');document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.page===id));refresh();if(id==='goLiveReset')initGoLiveReset();if(id==='settings')loadCustomerRentalRates();}
 function opts(id,arr){document.getElementById(id).innerHTML=arr.map(x=>`<option>${esc(x)}</option>`).join('')}
 function esc(x){return String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function validBarcode(bc){return BARCODE_RE.test(bc)}
@@ -854,24 +867,60 @@ function rentalPeriod(){
 function toggleRentalSelection(){document.getElementById('rentalCustomerSearch').disabled=document.getElementById('rentalAll').checked}
 function fmtMoney(n){return 'R'+Number(n||0).toFixed(2)}
 function dateLabel(v){return new Date(v+'T12:00:00').toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}
+async function loadCustomerRentalRates(){
+  const table=document.getElementById('customerRentalRateTable');
+  const select=document.getElementById('rentalRateCustomer');
+  if(!table||!select)return;
+  table.innerHTML='<p class="muted">Loading customer rates…</p>';
+  try{
+    const [customers,rates]=await Promise.all([
+      CylinderLive.customers(),
+      CylinderLive.request('/rest/v1/customer_rental_rates?select=id,customer_id,monthly_rate,effective_from,effective_to,notes,created_at&order=customer_id.asc,effective_from.desc')
+    ]);
+    select.innerHTML=customers.filter(x=>x.active!==false).sort((a,b)=>a.name.localeCompare(b.name)).map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('');
+    const names=new Map(customers.map(x=>[x.id,x.name]));
+    table.innerHTML='<table><tr><th>Customer</th><th>Monthly rate</th><th>Effective from</th><th>Effective until (exclusive)</th><th>Note</th></tr>'+
+      rates.map(x=>`<tr><td>${esc(names.get(x.customer_id)||'Unknown customer')}</td><td>${fmtMoney(x.monthly_rate)}</td><td>${esc(x.effective_from)}</td><td>${esc(x.effective_to||'No end date')}</td><td>${esc(x.notes||'—')}</td></tr>`).join('')+'</table>';
+    const from=document.getElementById('rentalRateEffectiveFrom');if(from&&!from.value)from.value='2026-11-09';
+  }catch(e){table.innerHTML='<p class="warning"><b>Could not load customer rates.</b><br>'+esc(e.message)+'</p>'}
+}
+async function saveCustomerRentalRate(){
+  const customerId=document.getElementById('rentalRateCustomer').value;
+  const amount=Number(document.getElementById('rentalRateAmount').value);
+  const effectiveFrom=document.getElementById('rentalRateEffectiveFrom').value;
+  const notes=document.getElementById('rentalRateNotes').value.trim();
+  if(!customerId){alert('Please select a customer.');return}
+  if(!Number.isFinite(amount)||amount<0){alert('Please enter a valid non-negative monthly rate.');return}
+  if(!effectiveFrom){alert('Please choose an effective date.');return}
+  try{
+    await CylinderLive.request('/rest/v1/rpc/set_customer_rental_rate',{method:'POST',body:JSON.stringify({p_customer_id:customerId,p_monthly_rate:amount,p_effective_from:effectiveFrom,p_notes:notes||null})});
+    document.getElementById('rentalRateAmount').value='';
+    document.getElementById('rentalRateNotes').value='';
+    await loadCustomerRentalRates();
+    alert('Customer rental rate saved. Earlier effective rates remain in the history.');
+  }catch(e){alert('Could not save the customer rental rate.\\n'+e.message)}
+}
 async function rentalData(){
-  const [customers,cylinders,types,movements,adjustments,goLiveResets,goLiveBalances]=await Promise.all([
+  const [customers,cylinders,types,movements,adjustments,goLiveResets,goLiveBalances,rates]=await Promise.all([
     CylinderLive.customers(),
     CylinderLive.allCylinders(),
     CylinderLive.cylinderTypes(),
     CylinderLive.request('/rest/v1/movement_ledger?select=id,cylinder_id,movement_type,movement_at,customer_id,invoice_number,sto,notes,source,cylinder_type_id_snapshot,gas_type_snapshot,stock_code_snapshot&order=movement_at.asc&limit=10000'),
     CylinderLive.request('/rest/v1/rental_adjustments?select=id,customer_id,rental_start,rental_end,calculated_quantity,adjusted_quantity,reason,created_at&order=created_at.desc&limit=1000'),
     CylinderLive.request('/rest/v1/go_live_resets?select=id,reset_date,status&order=reset_date.desc&limit=20'),
-    CylinderLive.request('/rest/v1/go_live_reset_customer_balances?select=reset_id,customer_id,gas_type,quantity&order=created_at.asc&limit=10000')
+    CylinderLive.request('/rest/v1/go_live_reset_customer_balances?select=reset_id,customer_id,gas_type,quantity&order=created_at.asc&limit=10000'),
+    CylinderLive.request('/rest/v1/customer_rental_rates?select=id,customer_id,monthly_rate,effective_from,effective_to&order=effective_from.asc')
   ]);
-  return {customers,cylinders,types,movements,adjustments,goLiveResets,goLiveBalances};
+  return {customers,cylinders,types,movements,adjustments,goLiveResets,goLiveBalances,rates};
 }
 function calcCustomerRental(customerId, data, period){
   const typeMap=new Map(data.types.map(t=>[t.id,t]));
   const cylMap=new Map(data.cylinders.map(c=>[c.id,c]));
   const qty={};
   const reset=(data.goLiveResets||[]).filter(r=>r.reset_date<=period.endDate && r.status==='CONFIRMED').sort((a,b)=>b.reset_date.localeCompare(a.reset_date))[0];
-  if(!reset)return {qty,calculated:0,finalQty:0,adjustment:null,moves:[],needsOpeningBalance:true,negative:[]};
+  if(!reset)return {qty,calculated:0,finalQty:0,adjustment:null,moves:[],needsOpeningBalance:true,negative:[],rate:null,rateDate:null};
+  const rateDate=reset.reset_date>period.startDate?reset.reset_date:period.startDate;
+  const rate=(data.rates||[]).filter(x=>x.customer_id===customerId && x.effective_from<=rateDate && (!x.effective_to||rateDate<x.effective_to)).sort((a,b)=>b.effective_from.localeCompare(a.effective_from))[0]||null;
   (data.goLiveBalances||[]).filter(o=>o.reset_id===reset.id && o.customer_id===customerId).forEach(o=>{const g=o.gas_type||'Unknown type';qty[g]=(qty[g]||0)+Number(o.quantity||0)});
   const resetStart=new Date(reset.reset_date+'T00:00:00');
   const moves=data.movements.filter(m=>m.customer_id===customerId && new Date(m.movement_at)>=resetStart && new Date(m.movement_at)<period.end);
@@ -886,7 +935,7 @@ function calcCustomerRental(customerId, data, period){
   const adjustment=data.adjustments.find(a=>a.customer_id===customerId && a.rental_start===period.startDate && a.rental_end===period.endDate);
   const finalQty=adjustment&&adjustment.adjusted_quantity!=null?Number(adjustment.adjusted_quantity):calculated;
   const negative=Object.entries(qty).filter(([_,n])=>n<0);
-  return {qty,calculated,finalQty,adjustment,moves,needsOpeningBalance:false,negative};
+  return {qty,calculated,finalQty,adjustment,moves,needsOpeningBalance:false,negative,rate,rateDate};
 }
 async function saveRentalAdjustment(customerId,startDate,endDate,calculated,adjusted,reason){
   if(!reason||!reason.trim())throw new Error('A reason is required for a manual rental adjustment.');
@@ -906,8 +955,8 @@ async function rentalCalc(){
   const notice=document.getElementById('rentalNotice'); const result=document.getElementById('rentalResult');
   notice.innerHTML=''; result.innerHTML='<p class="muted">Calculating from the live movement history…</p>';
   try{
-    const period=rentalPeriod(), rate=Number(document.getElementById('rentalRate').value)||0, data=await rentalData();
-    notice.innerHTML='<p class="warning"><b>TEST CALCULATION ONLY.</b> Customer-specific rates and finalised rental statements are still being built. Do not use this screen as a live customer invoice.</p>';
+    const period=rentalPeriod(), data=await rentalData();
+    notice.innerHTML='<p class="warning"><b>PROVISIONAL CALCULATION ONLY.</b> This is a preview, not a finalised customer statement. The first go-live period may be shorter than a full month; its charging method must be confirmed before billing.</p>';
     const hasGoLiveReset=(data.goLiveResets||[]).some(r=>r.status==='CONFIRMED' && r.reset_date<=period.endDate);
     if(!hasGoLiveReset){result.innerHTML='<p class="warning"><b>Rental calculation is unavailable.</b><br>The test opening balances are excluded. Complete and confirm the new go-live stock take before calculating live customer rentals.</p>';return}
     const all=document.getElementById('rentalAll').checked;
@@ -916,14 +965,15 @@ async function rentalCalc(){
 
     let html='',grand=0;
     wanted.forEach(c=>{
-      const r=calcCustomerRental(c.id,data,period), hasNegative=r.negative.length>0, amount=hasNegative?0:r.finalQty*rate; grand+=amount;
+      const r=calcCustomerRental(c.id,data,period), hasNegative=r.negative.length>0, missingRate=r.finalQty>0&&!r.rate, amount=(hasNegative||missingRate)?0:r.finalQty*Number(r.rate?.monthly_rate||0); grand+=amount;
       if(hasNegative)notice.innerHTML+='<p class="warning"><b>Balance exception:</b> '+esc(c.name)+' has a negative cylinder quantity and is excluded from the rental total until reconciled.</p>';
+      if(missingRate)notice.innerHTML+='<p class="warning"><b>Rate missing:</b> '+esc(c.name)+' has no customer-specific rate effective from '+esc(r.rateDate||'the period start')+'.</p>';
       const details=Object.entries(r.qty).sort((a,b)=>a[0].localeCompare(b[0])).map(([g,n])=>`<span class="badge">${esc(g)}: ${n}</span>`).join(' ')||'—';
-      html+=`<div class="card rentalCard"><h3>${esc(c.name)}</h3><p><b>Rental period:</b> ${dateLabel(period.startDate)} → ${dateLabel(period.endDate)}</p><p><b>${esc(c.name)} total: ${r.finalQty} cylinders</b></p><p><b>Rental amount:</b> ${hasNegative?'Not calculated — balance needs review':r.finalQty+' × '+fmtMoney(rate)+' = '+fmtMoney(amount)}</p>${r.adjustment?`<p class="warning"><b>Manual adjustment:</b> calculated ${r.calculated} → billed ${r.finalQty}${r.adjustment.reason?` — ${esc(r.adjustment.reason)}`:''}</p>`:''}<button onclick="toggleRentalDetails(this)">Show More</button> <button class="smallbtn" onclick='rentalOverride(${JSON.stringify(c.id)},${r.calculated},${r.finalQty},${JSON.stringify(c.name)},${JSON.stringify(period.startDate)},${JSON.stringify(period.endDate)})'>Edit Total</button><div class="rentalDetails hidden"><p><b>Type breakdown at period end:</b></p>${details}</div></div>`;
+      html+=`<div class="card rentalCard"><h3>${esc(c.name)}</h3><p><b>Rental period:</b> ${dateLabel(period.startDate)} → ${dateLabel(period.endDate)}</p><p><b>${esc(c.name)} total: ${r.finalQty} cylinders</b></p><p><b>Applied monthly rate:</b> ${r.rate?fmtMoney(r.rate.monthly_rate):'No rate set'} (effective ${esc(r.rateDate||'—')})</p><p><b>Rental amount:</b> ${(hasNegative||missingRate)?'Not calculated — review balance or rate':r.finalQty+' × '+fmtMoney(r.rate?.monthly_rate||0)+' = '+fmtMoney(amount)}</p>${r.adjustment?`<p class="warning"><b>Manual adjustment:</b> calculated ${r.calculated} → billed ${r.finalQty}${r.adjustment.reason?` — ${esc(r.adjustment.reason)}`:''}</p>`:''}<button onclick="toggleRentalDetails(this)">Show More</button> <button class="smallbtn" onclick='rentalOverride(${JSON.stringify(c.id)},${r.calculated},${r.finalQty},${JSON.stringify(c.name)},${JSON.stringify(period.startDate)},${JSON.stringify(period.endDate)})'>Edit Total</button><div class="rentalDetails hidden"><p><b>Type breakdown at period end:</b></p>${details}</div></div>`;
     });
     html+=`<div class="card"><h3>Grand Total</h3><p><b>${fmtMoney(grand)}</b></p><p class="muted">Calculated from closing cylinders on ${dateLabel(period.endDate)} and the rate entered above.</p></div>`;
     result.innerHTML=html;
-    window.lastRental={period,rate,html};
+    window.lastRental={period,html};
   }catch(e){result.innerHTML='<p class="warning"><b>Rental could not be calculated.</b><br>'+esc(e.message)+'</p>'}
 }
 function toggleRentalDetails(btn){const d=btn.nextElementSibling.nextElementSibling;d.classList.toggle('hidden');btn.textContent=d.classList.contains('hidden')?'SHOW MORE':'SHOW LESS'}
