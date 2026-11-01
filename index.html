@@ -46,6 +46,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <button class="navbtn" data-page="out" onclick="show('out')">SCAN OUT</button>
 <button class="navbtn" data-page="return" onclick="show('return')">SCAN RETURN</button>
 <button class="navbtn" data-page="receive" onclick="show('receive')">RECEIVING</button>
+<button class="navbtn" data-page="supplierReturn" onclick="show('supplierReturn')">RETURN TO SUPPLIER</button>
 <button class="navbtn" data-page="find" onclick="show('find')">Find Cylinder</button>
 <button class="navbtn" data-page="reports" onclick="show('reports')">Reports</button>
 <button class="navbtn" data-page="settings" onclick="show('settings')">Settings</button>
@@ -100,6 +101,18 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <h3>Bulk Excel import</h3><p class="muted">Required format: Gas Type, Barcode. In the full app this will import .xlsx directly and validate duplicate/unknown codes before adding stock.</p>
 <input type="file" id="excelFile" accept=".xlsx,.xls,.csv">
 </div></section>
+
+<section id="supplierReturn" class="page hidden">
+ <div class="card"><h2>RETURN TO SUPPLIER</h2>
+ <p class="muted">Scan Afrox cylinders currently in stock that are being returned to the supplier. This staging version only simulates the movement.</p>
+ <input id="supplierReturnBarcode" placeholder="710311 + 8 digits" onkeydown="enterSupplierReturn(event)">
+ <button class="primary" onclick="addSupplierReturn()">ADD CYLINDER</button>
+ <button onclick="startCameraScan('supplierReturn')">📷 SCAN WITH CAMERA</button>
+ <div id="supplierReturnCameraMsg" class="muted"></div>
+ <div id="supplierReturnList"></div>
+ <button class="primary" onclick="completeSupplierReturn()">COMPLETE RETURN TO SUPPLIER</button>
+ <div id="supplierReturnMsg"></div></div>
+</section>
 
 <section id="customers" class="page hidden">
 <div class="card"><h2>Customers</h2>
@@ -668,6 +681,46 @@ async function completeReceive(){
     alert('RECEIVING WAS NOT COMPLETED.\n\nNo cylinders were changed in the app.\n\n'+e.message);
   }
 }
+let supplierReturnSession=[];
+function enterSupplierReturn(e){if(e.key==='Enter'){e.preventDefault();addSupplierReturn()}}
+function renderSupplierReturn(){
+ const list=document.getElementById('supplierReturnList'); if(!list)return;
+ if(!supplierReturnSession.length){list.innerHTML='<p class="muted">No cylinders queued yet.</p>';return;}
+ list.innerHTML='<div class="card"><p><b>'+supplierReturnSession.length+' cylinders queued for return to supplier</b></p><details open><summary>Show queued cylinders</summary><ol>'+
+ supplierReturnSession.map((x,i)=>'<li>'+esc(x.barcode)+' — '+esc(x.type)+' <button onclick="supplierReturnSession.splice('+i+',1);renderSupplierReturn()">Remove</button></li>').join('')+
+ '</ol></details></div>';
+}
+async function addSupplierReturn(){
+ const input=document.getElementById('supplierReturnBarcode'),msg=document.getElementById('supplierReturnMsg');
+ const barcode=input.value.trim(); if(!barcode)return;
+ if(!/^710311\\d{8}$/.test(barcode)){msg.innerHTML='<p class="warning"><b>BARCODE NOT VALID.</b><br>It must start with 710311 and contain 8 digits after it.</p>';return;}
+ if(supplierReturnSession.some(x=>x.barcode===barcode)){msg.innerHTML='<p class="warning">This cylinder is already in the return list.</p>';input.value='';return;}
+ try{
+   const rows=await CylinderLive.cylindersByBarcode([barcode]);
+   if(!rows.length)throw new Error('Barcode not found in the live database.');
+   const cylinder=rows[0];
+   if(cylinder.status!=='IN_STOCK'||cylinder.active===false)throw new Error('Only active cylinders currently in stock can be returned to the supplier.');
+   const types=await CylinderLive.cylinderTypes(),t=types.find(x=>x.id===cylinder.cylinder_type_id);
+   supplierReturnSession.push({barcode,type:(t?.stock_code||'')+(t?.gas_type?' — '+t.gas_type:'')+(t?.description?' — '+t.description:'')});
+   input.value='';msg.innerHTML='<p class="success">Added <b>'+esc(barcode)+'</b> to the Return to Supplier list.</p>';renderSupplierReturn();
+ }catch(e){msg.innerHTML='<p class="warning">'+esc(e.message)+'</p>';}
+}
+async function completeSupplierReturn(){
+ const msg=document.getElementById('supplierReturnMsg');
+ if(!supplierReturnSession.length){msg.innerHTML='<p class="warning">No cylinders queued for return to supplier.</p>';return;}
+ const items=[...supplierReturnSession];
+ try{
+   const result=await CylinderLive.movement({action:'AFROX',barcodes:items.map(x=>x.barcode),note:'Return to Supplier'});
+   if(!result.ok)throw new Error(result.error||'Return to Supplier was not completed.');
+   if(window.CYLINDER_STAGING_MODE===true){
+     if(result.simulated!==true)throw new Error('STAGING SAFETY CHECK FAILED: the server did not confirm simulation. No local changes were made.');
+     msg.innerHTML='<p class="success"><b>SIMULATION SUCCESSFUL.</b></p><p>'+items.length+' cylinder(s) were accepted for Return to Supplier testing only. No stock or local cylinder records were changed. The queued items remain available for review.</p>';
+     return;
+   }
+   msg.innerHTML='<p class="warning">This workflow is currently available in staging only. No local records were changed.</p>';
+ }catch(e){msg.innerHTML='<p class="warning"><b>RETURN TO SUPPLIER WAS NOT COMPLETED.</b><br>No cylinder was changed in the app.<br>'+esc(e.message)+'</p>';}
+}
+
 async function findCylinder(){
   const input=document.getElementById('findBarcode');
   const r=document.getElementById('findResult');
