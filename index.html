@@ -581,7 +581,7 @@ async function openStockWindow(status='In Stock'){
     const [cylinders,types]=await Promise.all([CylinderLive.allCylinders(),CylinderLive.cylinderTypes()]);
     const typeMap=new Map(types.map(t=>[t.id,t]));
     liveStockTypes=types.slice();
-    liveStockRows=cylinders.filter(c=>c.status===liveStockStatus&&c.active!==false).map(c=>{const t=typeMap.get(c.cylinder_type_id)||{};return {...c,stock_code:t.stock_code||'',gas_type:t.gas_type||'',description:t.description||''};});
+    liveStockRows=cylinders.filter(c=>c.status===liveStockStatus&&(liveStockStatus==='WITH_SUPPLIER'||c.active!==false)).map(c=>{const t=typeMap.get(c.cylinder_type_id)||{};return {...c,stock_code:t.stock_code||'',gas_type:t.gas_type||'',description:t.description||''};});
     const sel=document.getElementById('stockGasFilter');
     const current=sel.value;
     sel.innerHTML='<option value="">All gas types</option>'+[...new Set(liveStockRows.map(x=>x.gas_type).filter(Boolean))].sort().map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('');
