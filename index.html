@@ -912,6 +912,17 @@ async function fetchAllMovementLedger(){
   }
   return all;
 }
+async function fetchAllRentalAdjustmentAudit(){
+  const all=[];let lastId=0;const pageSize=1000;
+  while(true){
+    const page=await CylinderLive.request('/rest/v1/rental_adjustment_audit?select=id,customer_id,rental_start,rental_end,previous_adjusted_quantity,new_adjusted_quantity,reason,changed_at&id=gt.'+lastId+'&order=id.asc&limit='+pageSize);
+    all.push(...page);
+    if(page.length<pageSize)break;
+    lastId=Number(page[page.length-1].id);
+    if(!Number.isSafeInteger(lastId)||lastId<=0)throw new Error('Could not continue rental adjustment audit pagination.');
+  }
+  return all;
+}
 async function rentalData(){
   const [customers,cylinders,types,movements,adjustments,goLiveResets,goLiveBalances,rates,adjustmentAudit]=await Promise.all([
     CylinderLive.customers(),
@@ -922,7 +933,7 @@ async function rentalData(){
     CylinderLive.request('/rest/v1/go_live_resets?select=id,reset_date,status&order=reset_date.desc&limit=20'),
     CylinderLive.request('/rest/v1/go_live_reset_customer_balances?select=reset_id,customer_id,gas_type,quantity&order=created_at.asc&limit=10000'),
     CylinderLive.request('/rest/v1/customer_rental_rates?select=id,customer_id,monthly_rate,effective_from,effective_to&order=effective_from.asc'),
-    CylinderLive.request('/rest/v1/rental_adjustment_audit?select=id,customer_id,rental_start,rental_end,previous_adjusted_quantity,new_adjusted_quantity,reason,changed_at&order=changed_at.desc&limit=1000')
+    fetchAllRentalAdjustmentAudit()
   ]);
   return {customers,cylinders,types,movements,adjustments,goLiveResets,goLiveBalances,rates,adjustmentAudit};
 }
