@@ -901,12 +901,23 @@ async function saveCustomerRentalRate(){
     alert('Customer rental rate saved. Earlier effective rates remain in the history.');
   }catch(e){alert('Could not save the customer rental rate.\\n'+e.message)}
 }
+async function fetchAllMovementLedger(){
+  const all=[];let lastId=0;const pageSize=1000;
+  while(true){
+    const page=await CylinderLive.request('/rest/v1/movement_ledger?select=id,cylinder_id,movement_type,movement_at,customer_id,invoice_number,sto,notes,source,cylinder_type_id_snapshot,gas_type_snapshot,stock_code_snapshot&id=gt.'+lastId+'&order=id.asc&limit='+pageSize);
+    all.push(...page);
+    if(page.length<pageSize)break;
+    lastId=Number(page[page.length-1].id);
+    if(!Number.isSafeInteger(lastId)||lastId<=0)throw new Error('Could not continue movement-history pagination.');
+  }
+  return all;
+}
 async function rentalData(){
   const [customers,cylinders,types,movements,adjustments,goLiveResets,goLiveBalances,rates,adjustmentAudit]=await Promise.all([
     CylinderLive.customers(),
     CylinderLive.allCylinders(),
     CylinderLive.cylinderTypes(),
-    CylinderLive.request('/rest/v1/movement_ledger?select=id,cylinder_id,movement_type,movement_at,customer_id,invoice_number,sto,notes,source,cylinder_type_id_snapshot,gas_type_snapshot,stock_code_snapshot&order=movement_at.asc&limit=10000'),
+    fetchAllMovementLedger(),
     CylinderLive.request('/rest/v1/rental_adjustments?select=id,customer_id,rental_start,rental_end,calculated_quantity,adjusted_quantity,reason,created_at&order=created_at.desc&limit=1000'),
     CylinderLive.request('/rest/v1/go_live_resets?select=id,reset_date,status&order=reset_date.desc&limit=20'),
     CylinderLive.request('/rest/v1/go_live_reset_customer_balances?select=reset_id,customer_id,gas_type,quantity&order=created_at.asc&limit=10000'),
