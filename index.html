@@ -98,8 +98,9 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <div id="receiveList"></div>
 <button class="primary" onclick="completeReceive()">Complete Receiving</button>
 <hr>
-<h3>Bulk Excel import</h3><p class="muted">Required format: Gas Type, Barcode. In the full app this will import .xlsx directly and validate duplicate/unknown codes before adding stock.</p>
-<input type="file" id="excelFile" accept=".xlsx,.xls,.csv">
+<h3>Bulk Excel import — not enabled yet</h3>
+<p class="muted">For now, please receive cylinders by scanning or entering each barcode above. Excel import is not active in this test version, so selecting a file will not add stock.</p>
+<input type="file" id="excelFile" accept=".xlsx,.xls,.csv" disabled title="Excel import is not enabled yet">
 </div></section>
 
 <section id="supplierReturn" class="page hidden">
