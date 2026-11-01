@@ -1045,14 +1045,16 @@ async function loadDailyReport(){
   try{
     const start=date+'T00:00:00';
     const next=new Date(start); next.setDate(next.getDate()+1);
-    const endExclusive=next.toISOString();
-    const startIso=new Date(start).toISOString();
-    const [movements,customers,types,cylinders]=await Promise.all([
-      CylinderLive.request('/rest/v1/movement_ledger?select=id,cylinder_id,movement_type,movement_at,customer_id,invoice_number,sto,notes,source&movement_at=gte.'+encodeURIComponent(startIso)+'&movement_at=lt.'+encodeURIComponent(endExclusive)+'&order=movement_at.asc&limit=10000'),
+    const startTime=new Date(start).getTime();
+    const endTime=next.getTime();
+    const [allMovements,customers,types,cylinders]=await Promise.all([
+      fetchAllMovementLedger(),
       CylinderLive.request('/rest/v1/customers?select=id,name,telephone,delivery_address,email,active&order=name.asc'),
       CylinderLive.cylinderTypes(),
       CylinderLive.allCylinders()
     ]);
+    const movements=allMovements.filter(m=>{const t=new Date(m.movement_at).getTime();return t>=startTime&&t<endTime;})
+      .sort((a,b)=>new Date(a.movement_at)-new Date(b.movement_at));
     const customerMap=new Map(customers.map(x=>[x.id,x]));
     const typeMap=new Map(types.map(x=>[x.id,x]));
     const cylMap=new Map(cylinders.map(x=>[x.id,x]));
