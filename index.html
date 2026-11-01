@@ -693,7 +693,7 @@ function renderSupplierReturn(){
 async function addSupplierReturn(){
  const input=document.getElementById('supplierReturnBarcode'),msg=document.getElementById('supplierReturnMsg');
  const barcode=input.value.trim(); if(!barcode)return;
- if(!/^710311\\d{8}$/.test(barcode)){msg.innerHTML='<p class="warning"><b>BARCODE NOT VALID.</b><br>It must start with 710311 and contain 8 digits after it.</p>';return;}
+ if(!/^710311\d{8}$/.test(barcode)){msg.innerHTML='<p class="warning"><b>BARCODE NOT VALID.</b><br>It must start with 710311 and contain 8 digits after it.</p>';return;}
  if(supplierReturnSession.some(x=>x.barcode===barcode)){msg.innerHTML='<p class="warning">This cylinder is already in the return list.</p>';input.value='';return;}
  try{
    const rows=await CylinderLive.cylindersByBarcode([barcode]);
