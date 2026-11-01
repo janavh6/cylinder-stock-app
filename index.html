@@ -56,7 +56,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <div class="grid">
 <div class="card dashcard" onclick="openStockWindow('In Stock')"><div class="muted">In Stock</div><div class="big" id="stockCount">0</div><div class="muted">Click to open</div></div>
 <div class="card dashcard" onclick="openStockWindow('With Customer')"><div class="muted">With Customers</div><div class="big" id="customerCount">0</div><div class="muted">Click to open</div></div>
-<div class="card dashcard" onclick="openStockWindow('With Supplier')"><div class="muted">Archived / Supplier</div><div class="big" id="afroxCount">0</div><div class="muted">Click to open</div></div>
+<div class="card dashcard" onclick="openStockWindow('With Supplier')"><div class="muted">Archived / Supplier</div><div class="big" id="supplierCount">0</div><div class="muted">Click to open</div></div>
 <div class="card dashcard" onclick="show('customers')"><div class="muted">Customers</div><div class="big" id="custCount">0</div><div class="muted">Click to open</div></div>
 </div>
 <div class="card"><h2>Quick actions</h2><button class="primary" onclick="show('out')">Scan Out</button>
@@ -204,7 +204,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
     <label>To date<input id="movementToDate" type="date"></label>
     <label>Customer<input id="movementCustomer" list="customerList" placeholder="All customers" oninput="renderMovementReport()"></label>
     <input id="movementSearch" placeholder="Search barcode, gas, stock code, STO or invoice" oninput="renderMovementReport()">
-    <select id="movementTypeFilter" onchange="renderMovementReport()"><option value="">All movements</option><option value="SCAN_OUT">Scan Out</option><option value="SCAN_RETURN">Scan Return</option><option value="RECEIVED_FROM_AFROX">Received from Supplier</option><option value="SENT_TO_AFROX">Sent to Supplier</option></select>
+    <select id="movementTypeFilter" onchange="renderMovementReport()"><option value="">All movements</option><option value="SCAN_OUT">Scan Out</option><option value="SCAN_RETURN">Scan Return</option><option value="RECEIVED_FROM_SUPPLIER">Received from Supplier</option><option value="SENT_TO_SUPPLIER">Sent to Supplier</option></select>
     <button class="primary" onclick="loadMovementReport()">Load Report</button>
   </div>
   <div id="movementReportNotice"></div>
@@ -220,7 +220,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <div id="typeTable"></div>
 <hr>
 <div class="card">
-<h3>🔄 19 October 2026 — Go-Live Stock Take</h3>
+<h3>🔄 9 November 2026 — Go-Live Stock Take</h3>
 <p class="muted">This is the controlled reset point for the new live system. It does <b>not</b> delete previous history. You will scan the cylinders physically at your company and then scan the cylinders physically held by each customer.</p>
 <button class="primary" onclick="show('goLiveReset')">Open Go-Live Stock Take</button>
 </div>
@@ -229,8 +229,8 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <section id="goLiveReset" class="page hidden">
 <div class="card">
 <button onclick="show('settings')">← Back to Settings</button>
-<h2>🔄 GO-LIVE STOCK TAKE — 19 OCTOBER 2026</h2>
-<p><b>Official reset date:</b> 19 October 2026</p>
+<h2>🔄 GO-LIVE STOCK TAKE — 9 NOVEMBER 2026</h2>
+<p><b>Official reset date:</b> 9 November 2026</p>
 <p class="muted">Use this once, after physically checking the cylinders. Previous movements remain in the history. The reset establishes the new opening position for stock and Rental.</p>
 <div id="goLiveResetStatus"></div>
 
@@ -265,7 +265,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <h3>4. Review & Confirm</h3>
 <p class="muted">Before confirming, physically compare the totals with your stock count and customer count. This action is permanent for the 19 October reset date.</p>
 <div id="goLiveReview"></div>
-<label>Reset note (optional)<input id="goLiveNotes" placeholder="e.g. Physical stock take completed 19 October 2026"></label>
+<label>Reset note (optional)<input id="goLiveNotes" placeholder="e.g. Physical stock take completed 9 November 2026"></label>
 <button class="primary" onclick="confirmGoLiveReset()">Confirm 19 October Go-Live Reset</button>
 </div>
 </div>
@@ -280,7 +280,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <p>Rental period: <b>20th of previous month → 19th of current month</b>.</p>
 <div class="row">
 <label>Period ending<input id="rentalEndDate" type="date"></label>
-<label>Rental rate per cylinder<input id="rentalRate" type="number" step="0.01" min="0" value="0"></label>
+<label>Temporary test rate per cylinder — not for billing<input id="rentalRate" type="number" step="0.01" min="0" value="0"></label>
 </div>
 <div class="row">
 <label>Customer<input id="rentalCustomerSearch" list="customerList" placeholder="Start typing customer name..."></label>
@@ -377,7 +377,7 @@ async function refresh(){
   // Keep the existing V6 local UI immediately responsive.
   document.getElementById('stockCount').textContent=db.cylinders.filter(c=>c.status==='In Stock').length;
   document.getElementById('customerCount').textContent=db.cylinders.filter(c=>c.status==='With Customer').length;
-  document.getElementById('afroxCount').textContent=db.cylinders.filter(c=>c.status==='With Afrox').length;
+  document.getElementById('supplierCount').textContent=db.cylinders.filter(c=>c.status==='With Supplier').length;
   document.getElementById('custCount').textContent=activeCustomers().length;
 
   const localCustomers=activeCustomers();
@@ -397,7 +397,7 @@ async function refresh(){
       // Staging dashboard totals always come from live Supabase reads, never the legacy local cache.
       document.getElementById('stockCount').textContent=cylinders.filter(x=>x.status==='IN_STOCK'&&x.active!==false).length;
       document.getElementById('customerCount').textContent=cylinders.filter(x=>x.status==='WITH_CUSTOMER'&&x.active!==false).length;
-      document.getElementById('afroxCount').textContent=cylinders.filter(x=>x.status==='WITH_SUPPLIER'&&x.active!==false).length;
+      document.getElementById('supplierCount').textContent=cylinders.filter(x=>x.status==='WITH_SUPPLIER'&&x.active!==false).length;
 
       const q=(document.getElementById('customerSearch')?.value||'').trim().toLowerCase();
       const typeMap=new Map(types.map(t=>[t.id,t]));
@@ -752,7 +752,7 @@ async function findCylinder(){
     const statusLabel={
       IN_STOCK:'In Stock',
       WITH_CUSTOMER:'With Customer',
-      WITH_AFROX:'With Supplier',
+      WITH_SUPPLIER:'With Supplier',
       ARCHIVED:'Archived'
     }[c.status]||c.status;
 
@@ -787,21 +787,10 @@ function enterGoLiveCompany(e){if(e.key==='Enter'){e.preventDefault();addGoLiveC
 function enterGoLiveCustomer(e){if(e.key==='Enter'){e.preventDefault();addGoLiveCustomer()}}
 async function initGoLiveReset(){
   const status=document.getElementById('goLiveResetStatus');
-  try{
-    const [customers,types,resets]=await Promise.all([
-      CylinderLive.customers(),CylinderLive.cylinderTypes(),CylinderLive.request('/rest/v1/go_live_resets?select=id,reset_date,status,company_barcode_count,customer_barcode_count,unbarcoded_company_count,created_at&order=reset_date.desc&limit=10')
-    ]);
-    document.getElementById('goLiveCustomer').innerHTML=customers.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
-    document.getElementById('goLiveUnbarcodedInputs').innerHTML=types.map(t=>`<label>${esc(t.stock_code)} — ${esc(t.gas_type)}<input class="goLiveUnbarcoded" data-type-id="${esc(t.id)}" data-code="${esc(t.stock_code)}" type="number" min="0" step="1" value="0"></label>`).join('');
-    if(resets.length){
-      const r=resets[0];
-      status.innerHTML=`<p class="warning"><b>Go-Live Reset Already Completed.</b><br>${esc(r.reset_date)} — ${r.company_barcode_count} company barcode(s), ${r.customer_barcode_count} customer barcode(s), ${r.unbarcoded_company_count} unbarcoded cylinder(s).</p>`;
-      document.querySelectorAll('#goLiveReset input,#goLiveReset select,#goLiveReset button').forEach(el=>{if(!el.matches('button[onclick="show(\'settings\')"]'))el.disabled=true});
-    }else{
-      status.innerHTML='<p class="success"><b>Ready For 19 October 2026.</b> No Go-Live reset has been completed yet.</p>';
-    }
-    renderGoLiveReset();
-  }catch(e){status.innerHTML='<p class="warning"><b>Could not load Go-Live setup.</b><br>'+esc(e.message)+'</p>'}
+  document.querySelectorAll('#goLiveReset input,#goLiveReset select,#goLiveReset button').forEach(el=>{
+    if(!el.matches('button[onclick="show(\\'settings\\')"]'))el.disabled=true;
+  });
+  status.innerHTML='<p class="warning"><b>Go-Live opening balances are being rebuilt.</b><br>Planned opening date: 9 November 2026. The reset is disabled until the new atomic stock-take and customer-balance checks are ready. Your test opening balances will not be used for live rental billing.</p>';
 }
 async function addGoLiveCompany(){
   const input=document.getElementById('goLiveCompanyBarcode'),bc=input.value.trim();
@@ -841,17 +830,7 @@ function renderGoLiveReset(){
   review.innerHTML=`<p><b>Company barcoded:</b> ${goLiveCompanySession.length}</p><p><b>Customer barcoded:</b> ${goLiveCustomerSession.length}</p><p><b>Unbarcoded older company stock:</b> ${ubTotal}</p><p><b>Total physically accounted for:</b> ${goLiveCompanySession.length+goLiveCustomerSession.length+ubTotal}</p>`;
 }
 async function confirmGoLiveReset(){
-  if(!goLiveCompanySession.length && !goLiveCustomerSession.length && !goLiveUnbarcoded().length){alert('Nothing has been entered. Complete the physical stock take first.');return}
-  const customerNames={};document.querySelectorAll('#goLiveCustomer option').forEach(o=>customerNames[o.value]=o.textContent);
-  const summary=`19 October 2026 GO-LIVE RESET\n\nCompany barcoded: ${goLiveCompanySession.length}\nCustomer barcoded: ${goLiveCustomerSession.length}\nUnbarcoded older stock: ${goLiveUnbarcoded().reduce((n,x)=>n+x.unbarcoded_quantity,0)}\n\nThis cannot be repeated for the 19 October reset date.\nPrevious history will NOT be deleted.\n\nContinue?`;
-  if(!confirm(summary))return;
-  try{
-    document.getElementById('goLiveResetStatus').innerHTML='<p class="muted">Saving the Go-Live opening balances…</p>';
-    const result=await CylinderLive.movement({action:'GO_LIVE_RESET',reset_date:'2026-10-19',company_barcodes:goLiveCompanySession.map(x=>x.barcode),customer_items:goLiveCustomerSession.map(x=>({barcode:x.barcode,customer_id:x.customerId})),unbarcoded_company:goLiveUnbarcoded(),notes:document.getElementById('goLiveNotes').value.trim()||null});
-    if(!result.ok)throw new Error(result.error||'Go-Live reset was not completed.');
-    alert('GO-LIVE RESET COMPLETED SUCCESSFULLY.\n\n19 October 2026 is now the opening balance for the live system.');
-    initGoLiveReset();
-  }catch(e){document.getElementById('goLiveResetStatus').innerHTML='<p class="warning"><b>Go-Live Reset Was Not Completed.</b><br>'+esc(e.message)+'</p>'}
+  alert('The Go-Live reset is temporarily disabled while the new verified opening-balance process is being prepared for 9 November 2026.');
 }
 
 function rentalDateDefaults(){
@@ -866,66 +845,71 @@ function rentalDateDefaults(){
 function rentalPeriod(){
   const v=document.getElementById('rentalEndDate').value;
   if(!v) throw new Error('Please select a rental period end date.');
-  const end=new Date(v+'T23:59:59');
-  const start=new Date(end.getFullYear(),end.getMonth()-1,20,0,0,0);
+  const selected=new Date(v+'T00:00:00');
+  const end=new Date(selected.getFullYear(),selected.getMonth(),selected.getDate()+1,0,0,0);
+  const start=new Date(selected.getFullYear(),selected.getMonth()-1,20,0,0,0);
   const iso=d=>{const yy=d.getFullYear(),mm=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return `${yy}-${mm}-${dd}`};
-  return {start,end,startDate:iso(start),endDate:iso(end)};
+  return {start,end,startDate:iso(start),endDate:v};
 }
 function toggleRentalSelection(){document.getElementById('rentalCustomerSearch').disabled=document.getElementById('rentalAll').checked}
 function fmtMoney(n){return 'R'+Number(n||0).toFixed(2)}
 function dateLabel(v){return new Date(v+'T12:00:00').toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}
 async function rentalData(){
-  const [customers,cylinders,types,openings,movements,adjustments,goLiveResets,goLiveBalances]=await Promise.all([
+  const [customers,cylinders,types,movements,adjustments,goLiveResets,goLiveBalances]=await Promise.all([
     CylinderLive.customers(),
     CylinderLive.allCylinders(),
     CylinderLive.cylinderTypes(),
-    CylinderLive.request('/rest/v1/customer_opening_balances?select=customer_id,gas_type,quantity,source&order=customer_id.asc'),
-    CylinderLive.request('/rest/v1/movement_ledger?select=id,cylinder_id,movement_type,movement_at,customer_id,invoice_number,sto,notes,source&order=movement_at.asc&limit=10000'),
+    CylinderLive.request('/rest/v1/movement_ledger?select=id,cylinder_id,movement_type,movement_at,customer_id,invoice_number,sto,notes,source,cylinder_type_id_snapshot,gas_type_snapshot,stock_code_snapshot&order=movement_at.asc&limit=10000'),
     CylinderLive.request('/rest/v1/rental_adjustments?select=id,customer_id,rental_start,rental_end,calculated_quantity,adjusted_quantity,reason,created_at&order=created_at.desc&limit=1000'),
     CylinderLive.request('/rest/v1/go_live_resets?select=id,reset_date,status&order=reset_date.desc&limit=20'),
     CylinderLive.request('/rest/v1/go_live_reset_customer_balances?select=reset_id,customer_id,gas_type,quantity&order=created_at.asc&limit=10000')
   ]);
-  return {customers,cylinders,types,openings,movements,adjustments,goLiveResets,goLiveBalances};
+  return {customers,cylinders,types,movements,adjustments,goLiveResets,goLiveBalances};
 }
 function calcCustomerRental(customerId, data, period){
   const typeMap=new Map(data.types.map(t=>[t.id,t]));
   const cylMap=new Map(data.cylinders.map(c=>[c.id,c]));
   const qty={};
-  const reset=(data.goLiveResets||[]).filter(r=>r.reset_date < period.startDate && r.status==='CONFIRMED').sort((a,b)=>b.reset_date.localeCompare(a.reset_date))[0];
-  if(reset){
-    (data.goLiveBalances||[]).filter(o=>o.reset_id===reset.id && o.customer_id===customerId).forEach(o=>{const g=o.gas_type||'Unknown type';qty[g]=(qty[g]||0)+Number(o.quantity||0)});
-  }else{
-    data.openings.filter(o=>o.customer_id===customerId).forEach(o=>{const g=o.gas_type||'Unknown type';qty[g]=(qty[g]||0)+Number(o.quantity||0)});
-  }
-  const moves=data.movements.filter(m=>m.customer_id===customerId && new Date(m.movement_at)>=period.start && new Date(m.movement_at)<=period.end);
+  const reset=(data.goLiveResets||[]).filter(r=>r.reset_date<=period.endDate && r.status==='CONFIRMED').sort((a,b)=>b.reset_date.localeCompare(a.reset_date))[0];
+  if(!reset)return {qty,calculated:0,finalQty:0,adjustment:null,moves:[],needsOpeningBalance:true,negative:[]};
+  (data.goLiveBalances||[]).filter(o=>o.reset_id===reset.id && o.customer_id===customerId).forEach(o=>{const g=o.gas_type||'Unknown type';qty[g]=(qty[g]||0)+Number(o.quantity||0)});
+  const resetStart=new Date(reset.reset_date+'T00:00:00');
+  const moves=data.movements.filter(m=>m.customer_id===customerId && new Date(m.movement_at)>=resetStart && new Date(m.movement_at)<period.end);
   moves.forEach(m=>{
-    const c=cylMap.get(m.cylinder_id); const t=c?typeMap.get(c.cylinder_type_id):null;
-    const g=t?.gas_type||t?.stock_code||'Unknown type';
-    if(m.movement_type==='SCAN_OUT') qty[g]=(qty[g]||0)+1;
-    if(m.movement_type==='SCAN_RETURN') qty[g]=(qty[g]||0)-1;
+    const cylinder=cylMap.get(m.cylinder_id); const type=cylinder?typeMap.get(cylinder.cylinder_type_id):null;
+    const gas=m.gas_type_snapshot||type?.gas_type||m.stock_code_snapshot||type?.stock_code||'Unknown type';
+    if(m.movement_type==='SCAN_OUT')qty[gas]=(qty[gas]||0)+1;
+    if(m.movement_type==='SCAN_RETURN')qty[gas]=(qty[gas]||0)-1;
   });
-  Object.keys(qty).forEach(k=>{if(qty[k]===0)delete qty[k]; if(qty[k]<0)qty[k]=0});
+  Object.keys(qty).forEach(k=>{if(qty[k]===0)delete qty[k]});
   const calculated=Object.values(qty).reduce((a,b)=>a+b,0);
-  const adj=data.adjustments.find(a=>a.customer_id===customerId && a.rental_start===period.startDate && a.rental_end===period.endDate);
-  const finalQty=adj&&adj.adjusted_quantity!=null?Number(adj.adjusted_quantity):calculated;
-  return {qty,calculated,finalQty,adjustment:adj,moves};
+  const adjustment=data.adjustments.find(a=>a.customer_id===customerId && a.rental_start===period.startDate && a.rental_end===period.endDate);
+  const finalQty=adjustment&&adjustment.adjusted_quantity!=null?Number(adjustment.adjusted_quantity):calculated;
+  const negative=Object.entries(qty).filter(([_,n])=>n<0);
+  return {qty,calculated,finalQty,adjustment,moves,needsOpeningBalance:false,negative};
 }
 async function saveRentalAdjustment(customerId,startDate,endDate,calculated,adjusted,reason){
-  const body={customer_id:customerId,rental_start:startDate,rental_end:endDate,calculated_quantity:calculated,adjusted_quantity:adjusted,reason:reason||null};
+  if(!reason||!reason.trim())throw new Error('A reason is required for a manual rental adjustment.');
+  const body={customer_id:customerId,rental_start:startDate,rental_end:endDate,calculated_quantity:calculated,adjusted_quantity:adjusted,reason:reason.trim()};
   return CylinderLive.request('/rest/v1/rental_adjustments?on_conflict=customer_id,rental_start,rental_end',{method:'POST',headers:{Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify(body)});
 }
 function rentalOverride(customerId,calculated,current,customerName,startDate,endDate){
   const v=prompt(`Rental quantity for ${customerName}\n\nCalculated closing quantity: ${calculated}\nCurrent billed quantity: ${current}\n\nEnter the quantity to bill:`,String(current));
   if(v===null)return;
   const n=Number(v); if(!Number.isInteger(n)||n<0){alert('Please enter a whole number of 0 or more.');return}
-  const reason=prompt('Reason for manual rental adjustment (optional):','')||'';
-  saveRentalAdjustment(customerId,startDate,endDate,calculated,n,reason).then(()=>rentalCalc()).catch(e=>alert('Could not save the rental adjustment.\n'+e.message));
+  const reason=prompt('Reason for this monthly rental quantity adjustment (required):','');
+  if(reason===null)return;
+  if(!reason.trim()){alert('A reason is required for a manual rental adjustment.');return}
+  saveRentalAdjustment(customerId,startDate,endDate,calculated,n,reason.trim()).then(()=>rentalCalc()).catch(e=>alert('Could not save the rental adjustment.\n'+e.message));
 }
 async function rentalCalc(){
   const notice=document.getElementById('rentalNotice'); const result=document.getElementById('rentalResult');
   notice.innerHTML=''; result.innerHTML='<p class="muted">Calculating from the live movement history…</p>';
   try{
     const period=rentalPeriod(), rate=Number(document.getElementById('rentalRate').value)||0, data=await rentalData();
+    notice.innerHTML='<p class="warning"><b>TEST CALCULATION ONLY.</b> Customer-specific rates and finalised rental statements are still being built. Do not use this screen as a live customer invoice.</p>';
+    const hasGoLiveReset=(data.goLiveResets||[]).some(r=>r.status==='CONFIRMED' && r.reset_date<=period.endDate);
+    if(!hasGoLiveReset){result.innerHTML='<p class="warning"><b>Rental calculation is unavailable.</b><br>The test opening balances are excluded. Complete and confirm the new go-live stock take before calculating live customer rentals.</p>';return}
     const all=document.getElementById('rentalAll').checked;
     const wanted=all?data.customers:[];
     if(!all){const name=document.getElementById('rentalCustomerSearch').value.trim(); const c=data.customers.find(x=>x.name.toLowerCase()===name.toLowerCase()); if(!c){alert('Please select an active customer or choose all customers.');result.innerHTML='';return} wanted.push(c)}
@@ -933,7 +917,8 @@ async function rentalCalc(){
     if(firstMovement && period.start<firstMovement){notice.innerHTML='<p class="warning">This period starts before the app\'s recorded movement history. The report uses the imported customer opening balances plus movements available in the database; older cylinder-by-cylinder history is not available.</p>'}
     let html='',grand=0;
     wanted.forEach(c=>{
-      const r=calcCustomerRental(c.id,data,period), amount=r.finalQty*rate; grand+=amount;
+      const r=calcCustomerRental(c.id,data,period), hasNegative=r.negative.length>0, amount=hasNegative?0:r.finalQty*rate; grand+=amount;
+      if(hasNegative)notice.innerHTML+='<p class="warning"><b>Balance exception:</b> '+esc(c.name)+' has a negative cylinder quantity and is excluded from the rental total until reconciled.</p>';
       const details=Object.entries(r.qty).sort((a,b)=>a[0].localeCompare(b[0])).map(([g,n])=>`<span class="badge">${esc(g)}: ${n}</span>`).join(' ')||'—';
       html+=`<div class="card rentalCard"><h3>${esc(c.name)}</h3><p><b>Rental period:</b> ${dateLabel(period.startDate)} → ${dateLabel(period.endDate)}</p><p><b>${esc(c.name)} total: ${r.finalQty} cylinders</b></p><p><b>Rental amount:</b> ${r.finalQty} × ${fmtMoney(rate)} = <b>${fmtMoney(amount)}</b></p>${r.adjustment?`<p class="warning"><b>Manual adjustment:</b> calculated ${r.calculated} → billed ${r.finalQty}${r.adjustment.reason?` — ${esc(r.adjustment.reason)}`:''}</p>`:''}<button onclick="toggleRentalDetails(this)">Show More</button> <button class="smallbtn" onclick='rentalOverride(${JSON.stringify(c.id)},${r.calculated},${r.finalQty},${JSON.stringify(c.name)},${JSON.stringify(period.startDate)},${JSON.stringify(period.endDate)})'>Edit Total</button><div class="rentalDetails hidden"><p><b>Type breakdown at period end:</b></p>${details}</div></div>`;
     });
@@ -944,8 +929,8 @@ async function rentalCalc(){
 }
 function toggleRentalDetails(btn){const d=btn.nextElementSibling.nextElementSibling;d.classList.toggle('hidden');btn.textContent=d.classList.contains('hidden')?'SHOW MORE':'SHOW LESS'}
 function localISODate(){const d=new Date();const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');const day=String(d.getDate()).padStart(2,'0');return y+'-'+m+'-'+day}
-function dailyActionLabel(t){const m={SCAN_OUT:'SCAN OUT',SCAN_RETURN:'SCAN RETURN',RECEIVED_FROM_AFROX:'RECEIVED FROM SUPPLIER',SENT_TO_AFROX:'SENT TO SUPPLIER',OUT:'SCAN OUT',RETURN:'SCAN RETURN',RECEIVE:'RECEIVED FROM SUPPLIER',SEND_TO_AFROX:'SENT TO SUPPLIER'};return m[t]||String(t||'MOVEMENT').replace(/_/g,' ')}
-function dailyActionClass(t){if(['SCAN_OUT','OUT'].includes(t))return 'OUT';if(['SCAN_RETURN','RETURN'].includes(t))return 'RETURN';if(['RECEIVED_FROM_AFROX','RECEIVE'].includes(t))return 'SUPPLIER IN';if(['SENT_TO_AFROX','SEND_TO_AFROX'].includes(t))return 'SUPPLIER OUT';return dailyActionLabel(t)}
+function dailyActionLabel(t){const m={SCAN_OUT:'SCAN OUT',SCAN_RETURN:'SCAN RETURN',RECEIVED_FROM_SUPPLIER:'RECEIVED FROM SUPPLIER',SENT_TO_SUPPLIER:'SENT TO SUPPLIER',OUT:'SCAN OUT',RETURN:'SCAN RETURN',RECEIVE:'RECEIVED FROM SUPPLIER',SUPPLIER_RETURN:'SENT TO SUPPLIER'};return m[t]||String(t||'MOVEMENT').replace(/_/g,' ')}
+function dailyActionClass(t){if(['SCAN_OUT','OUT'].includes(t))return 'OUT';if(['SCAN_RETURN','RETURN'].includes(t))return 'RETURN';if(['RECEIVED_FROM_SUPPLIER','RECEIVE'].includes(t))return 'SUPPLIER IN';if(['SENT_TO_SUPPLIER','SUPPLIER_RETURN'].includes(t))return 'SUPPLIER OUT';return dailyActionLabel(t)}
 function dailyEscape(v){return esc(v==null?'':String(v))}
 async function loadDailyReport(){
   const date=document.getElementById('dailyReportDate').value||localISODate();
@@ -1018,10 +1003,10 @@ async function loadDailyReport(){
         '<table class="daily-movement-table"><tr><th>Customer</th><th>Scan Out</th><th>Return</th></tr>'+body+'</table></div>';
     });
 
-    const afroxRows=rows.filter(r=>['SUPPLIER IN','SUPPLIER OUT'].includes(dailyActionClass(r.movement_type))).map(r=>
+    const supplierRows=rows.filter(r=>['SUPPLIER IN','SUPPLIER OUT'].includes(dailyActionClass(r.movement_type))).map(r=>
       '<tr><td>'+dailyEscape(dailyActionLabel(r.movement_type))+'</td><td>'+dailyEscape(r.barcode)+'</td><td>'+dailyEscape(r.gas_type)+'</td><td>'+dailyEscape(r.sto||'')+'</td></tr>'
     ).join('');
-    const afroxTable=afroxRows?'<div class="daily-gas-block"><h3>Supplier Movements</h3><table class="daily-movement-table"><tr><th>Movement</th><th>Barcode</th><th>Gas</th><th>STO</th></tr>'+afroxRows+'</table></div>':'';
+    const supplierTable=supplierRows?'<div class="daily-gas-block"><h3>Supplier Movements</h3><table class="daily-movement-table"><tr><th>Movement</th><th>Barcode</th><th>Gas</th><th>STO</th></tr>'+supplierRows+'</table></div>':'';
 
     const customerCounts={};rows.filter(r=>dailyActionClass(r.movement_type)==='OUT').forEach(r=>{customerCounts[r.customer_name]=(customerCounts[r.customer_name]||0)+1});
     const customerReturns={};rows.filter(r=>dailyActionClass(r.movement_type)==='RETURN').forEach(r=>{customerReturns[r.customer_name]=(customerReturns[r.customer_name]||0)+1});
@@ -1029,7 +1014,7 @@ async function loadDailyReport(){
     const customerRows=allCustomerNames.map(name=>'<tr><td>'+dailyEscape(name)+'</td><td>'+((customerCounts[name]||0))+'</td><td>'+((customerReturns[name]||0))+'</td><td>'+((customerCounts[name]||0)-(customerReturns[name]||0))+'</td></tr>').join('');
     const customerTable='<div class="card"><h3>Customer deliveries</h3><table><tr><th>Customer</th><th>Cylinders OUT</th><th>Cylinders RETURN</th><th>Net Out</th></tr>'+(customerRows||'<tr><td colspan="4">No customer movement recorded.</td></tr>')+'</table></div>';
 
-    const details=gasCustomerSections+afroxTable;
+    const details=gasCustomerSections+supplierTable;
     result.innerHTML='<div id="dailyReportPrintArea" class="daily-report-print"><style>.daily-report-print{font-size:13px}.daily-report-print .daily-gas-block{margin:14px 0}.daily-report-print .daily-gas-block h3{margin:8px 0 4px;border-bottom:2px solid #222;padding-bottom:4px}.daily-report-print .daily-movement-table{width:100%;border-collapse:collapse;table-layout:fixed}.daily-report-print .daily-movement-table th,.daily-report-print .daily-movement-table td{border:1px solid #444;padding:5px 6px;text-align:left;vertical-align:middle}.daily-report-print .daily-movement-table th{font-weight:700}.daily-report-print .daily-movement-table th:nth-child(1),.daily-report-print .daily-movement-table td:nth-child(1){width:30%}.daily-report-print .daily-movement-table th:nth-child(2),.daily-report-print .daily-movement-table td:nth-child(2){width:35%}.daily-report-print .daily-movement-table th:nth-child(3),.daily-report-print .daily-movement-table td:nth-child(3){width:35%}.daily-report-print .daily-customer{font-weight:700}.daily-report-print .daily-short{font-weight:700}.daily-report-print .card{margin:8px 0}.daily-report-print .big{font-size:22px;font-weight:700}</style><h2>Daily Cylinder Movement — '+dailyEscape(dateLabel(date))+'</h2>'+summary+details+customerTable+'</div>';
     window.lastDailyReport={date,rows};
   }catch(e){result.innerHTML='<p class="warning">Could not load the daily report.<br>'+dailyEscape(e.message)+'</p>'}
@@ -1345,7 +1330,7 @@ refresh();
     const notice=document.getElementById('supplierReportNotice'),result=document.getElementById('supplierReportResult');notice.innerHTML='';result.innerHTML='<p class="muted">Loading live Supplier movement history…</p>';
     try{
       const data=await fetchMovementReportData('supplierFromDate','supplierToDate');
-      const supplierTypes=new Set(['SENT_TO_AFROX','RECEIVED_FROM_AFROX','SEND_TO_AFROX','RECEIVE']);
+      const supplierTypes=new Set(['SENT_TO_SUPPLIER','RECEIVED_FROM_SUPPLIER','SUPPLIER_RETURN','RECEIVE']);
       const moves=data.rows.filter(x=>supplierTypes.has(x.movement_type));
       const groups=new Map();
       moves.forEach(m=>{if(!groups.has(m.cylinder_id))groups.set(m.cylinder_id,[]);groups.get(m.cylinder_id).push(m)});
@@ -1353,7 +1338,7 @@ refresh();
       groups.forEach(ms=>{
         ms.sort((a,b)=>new Date(a.movement_at)-new Date(b.movement_at));
         let lastSent=null,lastReceived=null;
-        ms.forEach(m=>{if(['SENT_TO_AFROX','SEND_TO_AFROX'].includes(m.movement_type))lastSent=m;else if(['RECEIVED_FROM_AFROX','RECEIVE'].includes(m.movement_type))lastReceived=m});
+        ms.forEach(m=>{if(['SENT_TO_SUPPLIER','SUPPLIER_RETURN'].includes(m.movement_type))lastSent=m;else if(['RECEIVED_FROM_SUPPLIER','RECEIVE'].includes(m.movement_type))lastReceived=m});
         const cyl=data.cylinders.find(c=>c.id===ms[0].cylinder_id)||{};
         rows.push({...ms[0],status:cyl.status||'',lastSent,lastReceived});
       });
