@@ -802,7 +802,7 @@ function enterGoLiveCustomer(e){if(e.key==='Enter'){e.preventDefault();addGoLive
 async function initGoLiveReset(){
   const status=document.getElementById('goLiveResetStatus');
   document.querySelectorAll('#goLiveReset input,#goLiveReset select,#goLiveReset button').forEach(el=>{
-    if(!el.matches('button[onclick="show(\\'settings\\')"]'))el.disabled=true;
+    if(el.getAttribute("onclick")!=="show('settings')")el.disabled=true;
   });
   status.innerHTML='<p class="warning"><b>Go-Live opening balances are being rebuilt.</b><br>Planned opening date: 9 November 2026. The reset is disabled until the new atomic stock-take and customer-balance checks are ready. Your test opening balances will not be used for live rental billing.</p>';
 }
