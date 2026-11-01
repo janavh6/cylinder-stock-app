@@ -804,7 +804,7 @@ async function initGoLiveReset(){
   document.querySelectorAll('#goLiveReset input,#goLiveReset select,#goLiveReset button').forEach(el=>{
     if(el.getAttribute("onclick")!=="show('settings')")el.disabled=true;
   });
-  status.innerHTML='<p class="warning"><b>Go-Live opening balances are being rebuilt.</b><br>Planned opening date: 9 November 2026. The reset is disabled until the new atomic stock-take and customer-balance checks are ready. Your test opening balances will not be used for live rental billing.</p>';
+  status.innerHTML='<p class="warning"><b>Go-Live opening balances are being rebuilt.</b><br>Planned opening date: 9 November 2026. The reset is disabled until the final checks are complete. Your test customer opening balances will not be used for live rental billing. The reset will create a new opening snapshot; previous movement history will be retained, and existing active cylinders not included in the physical count will be marked NOT ACCOUNTED FOR for review.</p>';
 }
 async function addGoLiveCompany(){
   const input=document.getElementById('goLiveCompanyBarcode'),bc=input.value.trim();
