@@ -598,6 +598,10 @@ async function completeReturn(){
   try{
     const result=await CylinderLive.movement({action:'RETURN',barcodes:items.map(x=>x.barcode)});
     if(!result.ok)throw new Error(result.error||'Returns were not completed.');
+    if(result.simulated===true){
+      msg.innerHTML='<p class="success"><b>SIMULATION SUCCESSFUL.</b></p><p>'+items.length+' return(s) were accepted for testing only. No stock or local cylinder records were changed. The queued items remain available for review.</p>';
+      return;
+    }
     for(const x of items){const local=db.cylinders.find(c=>c.barcode===x.barcode);if(local){local.status='Returned / Empty';local.customer='';recordMovement(local,'RETURN',{customer:x.customer,returnDate:new Date().toISOString(),source:'SUPABASE'});}}
     returnSession=[]; save(); renderReturn(); document.getElementById('returnBarcode').value='';
     msg.innerHTML='<p class="success"><b>'+items.length+' RETURN'+(items.length===1?'':'S')+' COMPLETED SUCCESSFULLY.</b></p><p>All queued cylinders are now Returned / Empty.</p>';
@@ -627,6 +631,10 @@ async function completeReceive(){
       sto:sto
     });
     if(!result.ok) throw new Error(result.error||'Receiving was not completed.');
+    if(result.simulated===true){
+      alert('SIMULATION SUCCESSFUL.\\n\\n'+receiveSession.length+' cylinder(s) were accepted for testing only. No stock or local cylinder records were changed. The queued items remain available for review.');
+      return;
+    }
 
     receiveSession.forEach(x=>{
       let c=db.cylinders.find(c=>c.barcode===x.barcode);
@@ -1074,6 +1082,10 @@ refresh();
     });
 
     if(!result.ok) throw new Error(result.error||'Movement was not completed.');
+    if(result.simulated===true){
+      alert('SIMULATION SUCCESSFUL — NO STOCK WAS CHANGED.\\n\\n'+barcodes.length+' cylinder(s) were accepted for testing only. No local cylinder records or movement history were changed. The scanned items remain queued for review.');
+      return;
+    }
 
     outSession.forEach(x=>{
       const c=db.cylinders.find(c=>c.barcode===x.barcode);
