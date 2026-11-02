@@ -732,7 +732,11 @@ async function completeSupplierReturn(){
  if(!supplierReturnSession.length){msg.innerHTML='<p class="warning">No cylinders queued for return to supplier.</p>';return;}
  const items=[...supplierReturnSession];
  try{
-   const result=await CylinderLive.movement({action:'SUPPLIER_RETURN',barcodes:items.map(x=>x.barcode),note:'Return to Supplier'});
+   const stos=[...new Set(items.map(x=>String(x.sto||'').trim()).filter(Boolean))];
+   if(stos.length>1)throw new Error('This batch contains more than one STO. Split it into separate batches so each movement keeps the correct STO.');
+   const notes=items.filter(x=>x.notes).map(x=>x.barcode+': '+x.notes).join(' | ');
+   const batchNote='Return to Supplier'+(notes?' — '+notes:'');
+   const result=await CylinderLive.movement({action:'SUPPLIER_RETURN',barcodes:items.map(x=>x.barcode),sto:stos[0]||null,note:batchNote});
    if(!result.ok)throw new Error(result.error||'Return to Supplier was not completed.');
    if(window.CYLINDER_STAGING_MODE===true){
      if(result.simulated!==true)throw new Error('STAGING SAFETY CHECK FAILED: the server did not confirm simulation. No local changes were made.');
