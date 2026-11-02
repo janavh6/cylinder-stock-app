@@ -98,9 +98,11 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <div id="receiveList"></div>
 <button class="primary" onclick="completeReceive()">Complete Receiving</button>
 <hr>
-<h3>Bulk Excel import — not enabled yet</h3>
-<p class="muted">For now, please receive cylinders by scanning or entering each barcode above. Excel import is not active in this test version, so selecting a file will not add stock.</p>
-<input type="file" id="excelFile" accept=".xlsx,.xls,.csv" disabled title="Excel import is not enabled yet">
+<h3>Bulk Receiving Import (CSV)</h3>
+<p class="muted">Upload a CSV saved from Excel using the template. Required columns: Barcode, Stock Code; STO is optional. CSV only for now — .xlsx files are not enabled. Uploading only checks the file; it does not change stock.</p>
+<p><a href="https://github.com/janavh6/cylinder-stock-app/blob/google-login-setup/templates/supplier-receiving-template.csv" target="_blank" rel="noopener">Download blank receiving template</a></p>
+<input type="file" id="receivingCsvFile" accept=".csv,text/csv">
+<div id="receivingImportPreview"></div>
 </div></section>
 
 <section id="supplierReturn" class="page hidden">
@@ -112,7 +114,12 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
  <div id="supplierReturnCameraMsg" class="muted"></div>
  <div id="supplierReturnList"></div>
  <button class="primary" onclick="completeSupplierReturn()">Complete Return To Supplier</button>
- <div id="supplierReturnMsg"></div></div>
+ <div id="supplierReturnMsg"></div>
+ <hr><h3>Bulk Supplier Return Import (CSV)</h3>
+ <p class="muted">Upload a CSV saved from Excel using the template. Required column: Barcode; STO and Notes are optional. CSV only for now — .xlsx files are not enabled. Uploading only checks the file and does not move stock.</p>
+ <p><a href="https://github.com/janavh6/cylinder-stock-app/blob/google-login-setup/templates/supplier-return-template.csv" target="_blank" rel="noopener">Download blank supplier-return template</a></p>
+ <input type="file" id="supplierReturnCsvFile" accept=".csv,text/csv">
+ <div id="supplierReturnImportPreview"></div></div>
 </section>
 
 <section id="customers" class="page hidden">
@@ -660,7 +667,7 @@ async function completeReceive(){
     const items=receiveSession.map(x=>({
       barcode:x.barcode,
       cylinder_type_id:typeMap.get(x.code),
-      sto:sto
+      sto:x.sto||sto
     }));
     if(items.some(x=>!x.cylinder_type_id)){
       throw new Error('One or more cylinder types could not be matched to the live database. Please check Settings first.');
@@ -735,6 +742,117 @@ async function completeSupplierReturn(){
    msg.innerHTML='<p class="warning">This workflow is currently available in staging only. No local records were changed.</p>';
  }catch(e){msg.innerHTML='<p class="warning"><b>Return To Supplier Was Not Completed.</b><br>No cylinder was changed in the app.<br>'+esc(e.message)+'</p>';}
 }
+
+
+/* CSV bulk-import validation. Files are previewed only; confirmation queues rows
+   for the existing atomic movement workflow. XLSX is deliberately not enabled. */
+(function(){
+ const MAX_IMPORT_ROWS=500;
+ function parseImportCsv(text){
+   const rows=[]; let row=[],cell='',quoted=false;
+   for(let i=0;i<text.length;i++){
+     const ch=text[i],next=text[i+1];
+     if(quoted){
+       if(ch==='"'&&next==='"'){cell+='"';i++;}
+       else if(ch==='"')quoted=false;
+       else cell+=ch;
+     }else if(ch==='"'){quoted=true;}
+     else if(ch===','){row.push(cell);cell='';}
+     else if(ch==='\n'||ch==='\r'){
+       if(ch==='\r'&&next==='\n')i++;
+       row.push(cell);cell='';
+       if(row.some(v=>String(v).trim()!==''))rows.push(row);
+       row=[];
+     }else cell+=ch;
+   }
+   if(quoted)throw new Error('The CSV contains an unclosed quotation mark.');
+   row.push(cell);if(row.some(v=>String(v).trim()!==''))rows.push(row);
+   if(rows.length<2)throw new Error('The CSV must contain a header and at least one data row.');
+   const headers=rows.shift().map(v=>String(v).trim().replace(/^\uFEFF/,'').toLowerCase());
+   return rows.map((cells,i)=>{const o={_row:i+2};headers.forEach((h,j)=>{if(h)o[h]=String(cells[j]??'').trim()});return o;});
+ }
+ function importStatus(el,html){if(el)el.innerHTML=html;}
+ function safe(v){return esc(String(v??''));}
+ async function readCsvFile(input,previewId,kind){
+   const preview=document.getElementById(previewId),file=input.files?.[0];
+   if(!file)return;
+   importStatus(preview,'<p class="muted">Reading CSV and checking current register…</p>');
+   try{
+     if(!/\.csv$/i.test(file.name))throw new Error('Please upload a .csv file. Excel .xlsx files are not supported yet.');
+     if(file.size>2*1024*1024)throw new Error('The file is larger than 2 MB. Please split it into smaller batches.');
+     const rows=parseImportCsv(await file.text());
+     if(rows.length>MAX_IMPORT_ROWS)throw new Error('This file has '+rows.length+' data rows. The maximum is '+MAX_IMPORT_ROWS+' per batch. Nothing was queued.');
+     const barcodes=rows.map(r=>String(r.barcode||'').trim());
+     const seen=new Set(),duplicates=new Set();
+     barcodes.forEach(b=>{if(b){if(seen.has(b))duplicates.add(b);seen.add(b)}});
+     const [cylinders,types]=await Promise.all([CylinderLive.allCylinders(),CylinderLive.cylinderTypes()]);
+     const cylMap=new Map(cylinders.map(c=>[String(c.barcode),c]));
+     const typeMap=new Map(types.filter(t=>t.active!==false).map(t=>[String(t.stock_code).trim().toLowerCase(),t]));
+     const checked=rows.map(r=>{
+       const barcode=String(r.barcode||'').trim();
+       let reason='';
+       if(!/^710311\d{8}$/.test(barcode))reason='Invalid barcode format';
+       else if(duplicates.has(barcode))reason='Duplicate barcode in this file';
+       else if(kind==='receive'){
+         const code=String(r['stock code']||r.stock_code||'').trim();
+         const type=typeMap.get(code.toLowerCase());
+         const cylinder=cylMap.get(barcode);
+         if(!reason&&!code)reason='Missing Stock Code';
+         else if(!reason&&!type)reason='Stock Code not found or inactive';
+         else if(!reason&&!cylinder)reason='Barcode is not yet in the cylinder register';
+         else if(!reason&&cylinder.active!==false&&['IN_STOCK','WITH_CUSTOMER'].includes(cylinder.status))reason='Cylinder is already active in company/customer stock';
+         else if(!reason&&!['WITH_SUPPLIER','ARCHIVED','IN_STOCK'].includes(cylinder.status))reason='Cylinder status is not eligible for receiving';
+         return {...r,barcode,code,type,cylinder,reason};
+       }else{
+         const cylinder=cylMap.get(barcode);
+         if(!reason&&!cylinder)reason='Barcode not found in cylinder register';
+         else if(!reason&&(cylinder.status!=='IN_STOCK'||cylinder.active===false))reason='Only active In Stock cylinders can be returned';
+         return {...r,barcode,cylinder,reason};
+       }
+       return {...r,barcode,reason};
+     });
+     const accepted=checked.filter(x=>!x.reason),rejected=checked.filter(x=>x.reason);
+     window._cylinderImportPreview={kind,rows:checked,accepted:accepted.length,fileName:file.name};
+     const details=checked.map(x=>'<tr><td>'+x._row+'</td><td>'+safe(x.barcode)+'</td><td>'+safe(x['stock code']||x.stock_code||'')+'</td><td>'+safe(x.sto||'')+'</td><td>'+(x.reason?'<span class="warning">'+safe(x.reason)+'</span>':'<span class="success">Ready</span>')+'</td></tr>').join('');
+     importStatus(preview,'<div class="card"><b>'+accepted.length+'</b> accepted; <b>'+rejected.length+'</b> rejected from '+checked.length+' rows. No stock has changed.'+
+       (rejected.length?'<p class="warning">Rejected rows must be corrected in the spreadsheet and uploaded again. Only accepted rows can be queued.</p>':'<p class="success">All rows passed the initial checks.</p>')+
+       '<div style="overflow:auto"><table><tr><th>Row</th><th>Barcode</th><th>Stock Code</th><th>STO</th><th>Validation</th></tr>'+details+'</table></div>'+
+       (accepted.length?'<button class="primary" type="button" onclick="confirmCylinderCsvImport(\''+kind+'\')">Queue '+accepted.length+' validated rows</button>':'')+
+       '<button type="button" onclick="clearCylinderCsvImport(\''+kind+'\')">Clear preview</button></div>');
+   }catch(e){window._cylinderImportPreview=null;importStatus(preview,'<p class="warning">'+safe(e.message)+'</p>');}
+   finally{input.value='';}
+ }
+ window.clearCylinderCsvImport=function(kind){
+   window._cylinderImportPreview=null;
+   const id=kind==='receive'?'receivingImportPreview':'supplierReturnImportPreview';
+   importStatus(document.getElementById(id),'');
+ };
+ window.confirmCylinderCsvImport=function(kind){
+   const p=window._cylinderImportPreview;
+   if(!p||p.kind!==kind||!p.accepted)return;
+   const accepted=p.rows.filter(x=>!x.reason);
+   if(kind==='receive'){
+     const existing=new Set(receiveSession.map(x=>x.barcode));
+     const collisions=accepted.filter(x=>existing.has(x.barcode));
+     if(collisions.length){alert('Some barcodes are already in the manual receiving queue. Remove them before importing.');return;}
+     accepted.forEach(x=>receiveSession.push({barcode:x.barcode,code:x.type.stock_code,gas:x.type.gas_type,description:x.type.description,sto:x.sto||null}));
+     renderReceive();
+     importStatus(document.getElementById('receivingImportPreview'),'<p class="success">'+accepted.length+' validated rows added to the receiving queue. Review the queue and use Complete Receiving to run the staging simulation.</p>');
+   }else{
+     const existing=new Set(supplierReturnSession.map(x=>x.barcode));
+     if(accepted.some(x=>existing.has(x.barcode))){alert('Some barcodes are already in the manual supplier-return queue. Remove them before importing.');return;}
+     accepted.forEach(x=>supplierReturnSession.push({barcode:x.barcode,type:x.cylinder?'Registered cylinder':'',sto:x.sto||null,notes:x.notes||''}));
+     renderSupplierReturn();
+     importStatus(document.getElementById('supplierReturnImportPreview'),'<p class="success">'+accepted.length+' validated rows added to the supplier-return queue. Review the queue and use Complete Return To Supplier to run the staging simulation.</p>');
+   }
+   window._cylinderImportPreview=null;
+ };
+ document.addEventListener('DOMContentLoaded',()=>{
+   const r=document.getElementById('receivingCsvFile'),s=document.getElementById('supplierReturnCsvFile');
+   if(r)r.addEventListener('change',()=>readCsvFile(r,'receivingImportPreview','receive'));
+   if(s)s.addEventListener('change',()=>readCsvFile(s,'supplierReturnImportPreview','supplier'));
+ });
+})();
 
 async function findCylinder(){
   const input=document.getElementById('findBarcode');
