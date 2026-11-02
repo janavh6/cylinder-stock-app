@@ -54,7 +54,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 
 <section id="dashboard" class="page">
 <div class="grid">
-<div class="card dashcard" onclick="openStockWindow('In Stock')"><div class="muted">In Stock</div><div class="big" id="stockCount">0</div><div class="muted">Click to open</div></div>
+<div class="card dashcard" onclick="openStockWindow('In Stock')"><div class="muted">Full — In Stock</div><div class="big" id="stockCount">0</div><div class="muted">Click to open</div></div>
 <div class="card dashcard" onclick="openStockWindow('With Customer')"><div class="muted">With Customers</div><div class="big" id="customerCount">0</div><div class="muted">Click to open</div></div>
 <div class="card dashcard" onclick="openStockWindow('Returned / Empty')"><div class="muted">Returned Empty</div><div class="big" id="emptyCount">0</div><div class="muted">Waiting for Supplier</div></div>
 <div class="card dashcard" onclick="openStockWindow('With Supplier')"><div class="muted">Archived / Supplier</div><div class="big" id="supplierCount">0</div><div class="muted">Click to open</div></div>
@@ -100,7 +100,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <button class="primary" onclick="completeReceive()">Complete Receiving</button>
 <hr>
 <h3>Bulk Receiving Import (CSV)</h3>
-<p class="muted">Upload a CSV saved from Excel using the template. Required columns: Barcode, Stock Code; STO is optional. CSV only for now — .xlsx files are not enabled. Uploading only checks the file; it does not change stock.</p>
+<p class="muted">Upload a CSV saved from Excel using the template. Required columns: Barcode, Stock Code; STO is optional. New barcodes are registered on receiving, and archived barcodes can be reactivated. Already-active or customer-held cylinders are rejected. CSV only for now — .xlsx files are not enabled. Uploading only checks the file; it does not change stock.</p>
 <p><a href="https://github.com/janavh6/cylinder-stock-app/blob/google-login-setup/templates/supplier-receiving-template.csv" target="_blank" rel="noopener">Download blank receiving template</a></p>
 <input type="file" id="receivingCsvFile" accept=".csv,text/csv">
 <div id="receivingImportPreview"></div>
@@ -118,7 +118,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
  <button class="primary" onclick="completeSupplierReturn()">Complete Return To Supplier</button>
  <div id="supplierReturnMsg"></div>
  <hr><h3>Bulk Supplier Return Import (CSV)</h3>
- <p class="muted">Upload a CSV saved from Excel using the template. Required column: Barcode; STO and Notes are optional. CSV only for now — .xlsx files are not enabled. Uploading only checks the file and does not move stock.</p>
+ <p class="muted">Upload a CSV saved from Excel using the template. Required column: Barcode; STO and Notes are optional. Full faulty cylinders and empty customer returns are both accepted. CSV only for now — .xlsx files are not enabled. Uploading only checks the file and does not move stock.</p>
  <p><a href="https://github.com/janavh6/cylinder-stock-app/blob/google-login-setup/templates/supplier-return-template.csv" target="_blank" rel="noopener">Download blank supplier-return template</a></p>
  <input type="file" id="supplierReturnCsvFile" accept=".csv,text/csv">
  <div id="supplierReturnImportPreview"></div></div>
