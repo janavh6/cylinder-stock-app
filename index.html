@@ -729,7 +729,7 @@ async function addSupplierReturn(){
    const cylinder=rows[0];
    if(!(['IN_STOCK','RETURNED_EMPTY'].includes(cylinder.status))||(cylinder.status==='IN_STOCK'&&cylinder.active===false))throw new Error('Only full cylinders in stock or empty cylinders returned by a customer can be sent to the supplier.');
    const types=await CylinderLive.cylinderTypes(),t=types.find(x=>x.id===cylinder.cylinder_type_id);
-   supplierReturnSession.push({barcode,condition:cylinder.cylinder_condition||'FULL',type:(t?.stock_code||'')+(t?.gas_type?' — '+t.gas_type:'')+(t?.description?' — '+t.description:'')});
+   supplierReturnSession.push({barcode,condition:cylinder.cylinder_condition||'UNKNOWN',type:(t?.stock_code||'')+(t?.gas_type?' — '+t.gas_type:'')+(t?.description?' — '+t.description:'')});
    input.value='';msg.innerHTML='<p class="success">Added <b>'+esc(barcode)+'</b> to the Return to Supplier list.</p>';renderSupplierReturn();
  }catch(e){msg.innerHTML='<p class="warning">'+esc(e.message)+'</p>';}
 }
@@ -1308,8 +1308,8 @@ refresh();
   async movement(payload){return this.request("/functions/v1/"+cfg.movementFunction,{method:"POST",body:JSON.stringify({...payload,dry_run:true})})},
   async customers(){return this.request("/rest/v1/customers?select=id,name,telephone,delivery_address,email,active&active=eq.true&order=name.asc")},
   async cylinderTypes(){return this.request("/rest/v1/cylinder_types?select=id,stock_code,gas_type,description,active&active=eq.true&order=stock_code.asc")},
-  async allCylinders(){return this.request("/rest/v1/cylinders?select=id,barcode,cylinder_type_id,sto,status,customer_id,active&order=barcode.asc")},
-  async cylindersByBarcode(barcodes){const u=[...new Set(barcodes)]; if(!u.length)return[]; const encoded=u.map(v=>`"${v.replace(/"/g,'\\"')}"`).join(','); return this.request("/rest/v1/cylinders?select=id,barcode,cylinder_type_id,sto,status,customer_id,active&barcode=in.("+encodeURIComponent(encoded)+")")}
+  async allCylinders(){return this.request("/rest/v1/cylinders?select=id,barcode,cylinder_type_id,sto,status,customer_id,active,cylinder_condition&order=barcode.asc")},
+  async cylindersByBarcode(barcodes){const u=[...new Set(barcodes)]; if(!u.length)return[]; const encoded=u.map(v=>`"${v.replace(/"/g,'\\"')}"`).join(','); return this.request("/rest/v1/cylinders?select=id,barcode,cylinder_type_id,sto,status,customer_id,active,cylinder_condition&barcode=in.("+encodeURIComponent(encoded)+")")}
  };
 })();
 </script>
