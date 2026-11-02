@@ -56,6 +56,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <div class="grid">
 <div class="card dashcard" onclick="openStockWindow('In Stock')"><div class="muted">In Stock</div><div class="big" id="stockCount">0</div><div class="muted">Click to open</div></div>
 <div class="card dashcard" onclick="openStockWindow('With Customer')"><div class="muted">With Customers</div><div class="big" id="customerCount">0</div><div class="muted">Click to open</div></div>
+<div class="card dashcard" onclick="openStockWindow('Returned / Empty')"><div class="muted">Returned Empty</div><div class="big" id="emptyCount">0</div><div class="muted">Waiting for Supplier</div></div>
 <div class="card dashcard" onclick="openStockWindow('With Supplier')"><div class="muted">Archived / Supplier</div><div class="big" id="supplierCount">0</div><div class="muted">Click to open</div></div>
 <div class="card dashcard" onclick="show('customers')"><div class="muted">Customers</div><div class="big" id="custCount">0</div><div class="muted">Click to open</div></div>
 </div>
@@ -421,6 +422,7 @@ async function refresh(){
       document.getElementById('stockCount').textContent=cylinders.filter(x=>x.status==='IN_STOCK'&&x.active!==false).length;
       document.getElementById('customerCount').textContent=cylinders.filter(x=>x.status==='WITH_CUSTOMER'&&x.active!==false).length;
       document.getElementById('supplierCount').textContent=cylinders.filter(x=>x.status==='WITH_SUPPLIER').length;
+      document.getElementById('emptyCount').textContent=cylinders.filter(x=>x.status==='RETURNED_EMPTY'&&x.active!==false).length;
 
       const q=(document.getElementById('customerSearch')?.value||'').trim().toLowerCase();
       const typeMap=new Map(types.map(t=>[t.id,t]));
@@ -575,8 +577,9 @@ function syncRentalCustomer(){}
 let liveStockRows=[], liveStockTypes=[], liveStockStatus='IN_STOCK', liveStockLabel='In Stock';
 async function openStockWindow(status='In Stock'){
   const statusConfig={
-    'In Stock':{value:'IN_STOCK',label:'In Stock'},
+    'In Stock':{value:'IN_STOCK',label:'Full — In Stock'},
     'With Customer':{value:'WITH_CUSTOMER',label:'With Customers'},
+    'Returned / Empty':{value:'RETURNED_EMPTY',label:'Returned / Empty'},
     'With Supplier':{value:'WITH_SUPPLIER',label:'Archived / Supplier'}
   };
   const selected=statusConfig[status]||statusConfig['In Stock'];
@@ -657,7 +660,7 @@ async function completeReturn(){
   }catch(e){msg.innerHTML='<p class="warning"><b>Returns Were Not Completed.</b><br>No cylinder was changed in the app.<br>'+esc(e.message)+'</p>';}
 }
 function enterAddReceive(e){if(e.key==='Enter'){e.preventDefault();addReceive()}}
-function addReceive(){let bc=document.getElementById('receiveBarcode').value.trim(),sel=document.getElementById('receiveType').value;let code=sel.split(' — ')[0],t=db.types.find(x=>x.code===code&&!x.archived);if(!bc||!t)return;if(!validBarcode(bc)){alert('BARCODE NOT VALID\nIt must start with 710311 and contain 8 digits after it.');return}if(db.cylinders.some(c=>c.barcode===bc)||receiveSession.some(c=>c.barcode===bc)){alert('Duplicate barcode.');return}receiveSession.push({barcode:bc,code:t.code,gas:t.gas,description:t.description});document.getElementById('receiveBarcode').value='';renderReceive()}
+function addReceive(){let bc=document.getElementById('receiveBarcode').value.trim(),sel=document.getElementById('receiveType').value;let code=sel.split(' — ')[0],t=db.types.find(x=>x.code===code&&!x.archived);if(!bc||!t)return;if(!validBarcode(bc)){alert('BARCODE NOT VALID\nIt must start with 710311 and contain 8 digits after it.');return}if(receiveSession.some(c=>c.barcode===bc)){alert('This barcode is already queued for receiving.');return}receiveSession.push({barcode:bc,code:t.code,gas:t.gas,description:t.description});document.getElementById('receiveBarcode').value='';renderReceive()}
 function renderReceive(){let m={};receiveSession.forEach(x=>m[x.gas]=(m[x.gas]||0)+1);document.getElementById('receiveList').innerHTML=`<p><b>${receiveSession.length} cylinders queued</b></p>${Object.entries(m).map(([g,n])=>`<span class="badge">${esc(g)}: ${n}</span> `).join('')}<details open><summary>Show queued barcodes</summary><ol>${receiveSession.map((x,i)=>`<li>${esc(x.barcode)} — ${esc(x.code)} ${esc(x.description)} <button onclick="receiveSession.splice(${i},1);renderReceive()">Remove</button></li>`).join('')}</ol></details>`}
 async function completeReceive(){
   if(!receiveSession.length){alert('Nothing to receive.');return}
