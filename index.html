@@ -57,6 +57,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <div class="card dashcard" onclick="openStockWindow('In Stock')"><div class="muted">Full — In Stock</div><div class="big" id="stockCount">0</div><div class="muted">Click to open</div></div>
 <div class="card dashcard" onclick="openStockWindow('With Customer')"><div class="muted">With Customers</div><div class="big" id="customerCount">0</div><div class="muted">Click to open</div></div>
 <div class="card dashcard" onclick="openStockWindow('Returned / Empty')"><div class="muted">Returned Empty</div><div class="big" id="emptyCount">0</div><div class="muted">Waiting for Supplier</div></div>
+<div class="card dashcard" onclick="openStockWindow('In Stock')"><div class="muted">Condition To Confirm</div><div class="big" id="unknownConditionCount">0</div><div class="muted">Legacy stock needing review</div></div>
 <div class="card dashcard" onclick="openStockWindow('With Supplier')"><div class="muted">Archived / Supplier</div><div class="big" id="supplierCount">0</div><div class="muted">Click to open</div></div>
 <div class="card dashcard" onclick="show('customers')"><div class="muted">Customers</div><div class="big" id="custCount">0</div><div class="muted">Click to open</div></div>
 </div>
@@ -423,6 +424,7 @@ async function refresh(){
       document.getElementById('customerCount').textContent=cylinders.filter(x=>x.status==='WITH_CUSTOMER'&&x.active!==false).length;
       document.getElementById('supplierCount').textContent=cylinders.filter(x=>x.status==='WITH_SUPPLIER').length;
       document.getElementById('emptyCount').textContent=cylinders.filter(x=>x.status==='RETURNED_EMPTY'&&x.active!==false).length;
+      document.getElementById('unknownConditionCount').textContent=cylinders.filter(x=>x.status==='IN_STOCK'&&x.cylinder_condition==='UNKNOWN'&&x.active!==false).length;
 
       const q=(document.getElementById('customerSearch')?.value||'').trim().toLowerCase();
       const typeMap=new Map(types.map(t=>[t.id,t]));
@@ -609,8 +611,8 @@ function renderLiveStock(){
   document.getElementById('stockWindowTitle').textContent='Cylinders — '+liveStockLabel+' — '+arr.length+' shown / '+liveStockRows.length+' total';
   const breakdown=Object.entries(counts).sort((a,b)=>a[0].localeCompare(b[0])).map(([g,n])=>`<button class="badge" onclick="document.getElementById('stockGasFilter').value=${JSON.stringify(g)};renderLiveStock()">${esc(g)}: ${n}</button>`).join(' ');
   document.getElementById('stockWindowBody').innerHTML='<div class="card"><h3>'+esc(liveStockLabel)+' breakdown</h3>'+breakdown+(gf?` <button onclick="document.getElementById('stockGasFilter').value='';renderLiveStock()">Show All</button>`:'')+'</div>'+
-    '<table><tr><th>Barcode</th><th>Gas</th><th>Stock Code</th><th>Description</th><th>STO</th><th>Action</th></tr>'+
-    (arr.length?arr.map(x=>`<tr><td><b>${esc(x.barcode)}</b></td><td>${esc(x.gas_type)}</td><td>${esc(x.stock_code)}</td><td>${esc(x.description)}</td><td>${esc(x.sto||'—')}</td><td><button class="smallbtn" onclick='findLiveCylinder(${JSON.stringify(x.barcode)})'>History</button></td></tr>`).join(''):'<tr><td colspan="6">No cylinders match your search.</td></tr>')+'</table>';
+    '<table><tr><th>Barcode</th><th>Condition</th><th>Gas</th><th>Stock Code</th><th>Description</th><th>STO</th><th>Action</th></tr>'+
+    (arr.length?arr.map(x=>`<tr><td><b>${esc(x.barcode)}</b></td><td>${esc(x.cylinder_condition==='FULL'?'Full':x.cylinder_condition==='EMPTY'?'Empty':'Condition not confirmed')}</td><td>${esc(x.gas_type)}</td><td>${esc(x.stock_code)}</td><td>${esc(x.description)}</td><td>${esc(x.sto||'—')}</td><td><button class="smallbtn" onclick='findLiveCylinder(${JSON.stringify(x.barcode)})'>History</button></td></tr>`).join(''):'<tr><td colspan="7">No cylinders match your search.</td></tr>')+'</table>';
 }
 function findLiveCylinder(barcode){document.getElementById('findBarcode').value=barcode;show('find');findCylinder();}
 function printStockWindow(){const body=document.getElementById('stockWindowBody')?.innerHTML||'';if(!body)return;printWindow('Live Stock',body)}
@@ -713,7 +715,7 @@ function renderSupplierReturn(){
  const list=document.getElementById('supplierReturnList'); if(!list)return;
  if(!supplierReturnSession.length){list.innerHTML='<p class="muted">No cylinders queued yet.</p>';return;}
  list.innerHTML='<div class="card"><p><b>'+supplierReturnSession.length+' cylinders queued for return to supplier</b></p><details open><summary>Show queued cylinders</summary><ol>'+
- supplierReturnSession.map((x,i)=>'<li>'+esc(x.barcode)+' — '+esc(x.condition==='EMPTY'?'Empty':'Full / potentially faulty')+' — '+esc(x.type)+' <button onclick="supplierReturnSession.splice('+i+',1);renderSupplierReturn()">Remove</button></li>').join('')+
+ supplierReturnSession.map((x,i)=>'<li>'+esc(x.barcode)+' — '+esc(x.condition==='EMPTY'?'Empty':x.condition==='UNKNOWN'?'Condition not confirmed':'Full / potentially faulty')+' — '+esc(x.type)+' <button onclick="supplierReturnSession.splice('+i+',1);renderSupplierReturn()">Remove</button></li>').join('')+
  '</ol></details></div>';
 }
 async function addSupplierReturn(){
@@ -915,7 +917,7 @@ async function findCylinder(){
       '<p><b>Gas:</b> '+esc(t?.gas_type||'')+'</p>'+
       '<p><b>Description:</b> '+esc(t?.description||'')+'</p>'+
       '<p><b>Status:</b> '+esc(statusLabel)+'</p>'+
-      '<p><b>Condition:</b> '+esc(c.cylinder_condition||'FULL')+'</p>'+
+      '<p><b>Condition:</b> '+esc(c.cylinder_condition==='FULL'?'Full':c.cylinder_condition==='EMPTY'?'Empty':'Not confirmed — verify before issuing')+'</p>'+
       '<p><b>Customer:</b> '+esc(customer?.name||'—')+'</p>'+
       '<h3>Movement History</h3>'+
       (history?'<ul>'+history+'</ul>':'<p class="muted">No movement history recorded.</p>')+
