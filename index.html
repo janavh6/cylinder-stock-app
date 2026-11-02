@@ -805,7 +805,7 @@ async function completeSupplierReturn(){
          else if(!reason&&!type)reason='Stock Code not found or inactive';
          else if(!reason&&!cylinder)reason='Barcode is not yet in the cylinder register';
          else if(!reason&&cylinder.active!==false&&['IN_STOCK','WITH_CUSTOMER'].includes(cylinder.status))reason='Cylinder is already active in company/customer stock';
-         else if(!reason&&!['WITH_SUPPLIER','ARCHIVED','IN_STOCK'].includes(cylinder.status))reason='Cylinder status is not eligible for receiving';
+         else if(!reason&&cylinder.status!=='WITH_SUPPLIER')reason='Only cylinders currently recorded With Supplier can be received again';
          return {...r,barcode,code,type,cylinder,reason};
        }else{
          const cylinder=cylMap.get(barcode);
