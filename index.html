@@ -67,7 +67,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <section id="out" class="page hidden">
 <div class="card"><h2>SCAN OUT — customer first</h2>
 <div class="row"><label>Customer<input id="outCustomerSearch" list="customerList" oninput="syncOutCustomer()" placeholder="Start typing customer name..."><datalist id="customerList"></datalist></label>
-<label>Invoice (optional)<input id="outInvoice" placeholder="Leave blank for Pending"></label></div>
+<label>Invoice / Reference<input id="outInvoice" placeholder="Enter invoice number, or Pnet for Partnernet"></label></div>
 <div id="scanner"><h3>Scan / enter cylinder barcode</h3>
 <input id="outBarcode" placeholder="710311 + 8 digits" onkeydown="enterAddOut(event)">
 <button class="primary" onclick="addOut()">Add Cylinder</button>
@@ -107,8 +107,9 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 
 <section id="supplierReturn" class="page hidden">
  <div class="card"><h2>Return To Supplier</h2>
- <p class="muted">Scan cylinders currently in stock that are being returned to the supplier. This staging version only simulates the movement.</p>
+ <p class="muted">Return full faulty cylinders or empty returned cylinders to the supplier. The app records their condition and archives the cylinder cycle. This staging version only simulates the movement.</p>
  <input id="supplierReturnBarcode" placeholder="710311 + 8 digits" onkeydown="enterSupplierReturn(event)">
+ <label>Return note / fault reason (optional)<input id="supplierReturnNote" placeholder="e.g. Faulty valve, damaged cylinder"></label>
  <button class="primary" onclick="addSupplierReturn()">Add Cylinder</button>
  <button onclick="startCameraScan('supplierReturn')">📷 SCAN WITH CAMERA</button>
  <div id="supplierReturnCameraMsg" class="muted"></div>
@@ -709,7 +710,7 @@ function renderSupplierReturn(){
  const list=document.getElementById('supplierReturnList'); if(!list)return;
  if(!supplierReturnSession.length){list.innerHTML='<p class="muted">No cylinders queued yet.</p>';return;}
  list.innerHTML='<div class="card"><p><b>'+supplierReturnSession.length+' cylinders queued for return to supplier</b></p><details open><summary>Show queued cylinders</summary><ol>'+
- supplierReturnSession.map((x,i)=>'<li>'+esc(x.barcode)+' — '+esc(x.type)+' <button onclick="supplierReturnSession.splice('+i+',1);renderSupplierReturn()">Remove</button></li>').join('')+
+ supplierReturnSession.map((x,i)=>'<li>'+esc(x.barcode)+' — '+esc(x.condition==='EMPTY'?'Empty':'Full / potentially faulty')+' — '+esc(x.type)+' <button onclick="supplierReturnSession.splice('+i+',1);renderSupplierReturn()">Remove</button></li>').join('')+
  '</ol></details></div>';
 }
 async function addSupplierReturn(){
@@ -721,9 +722,9 @@ async function addSupplierReturn(){
    const rows=await CylinderLive.cylindersByBarcode([barcode]);
    if(!rows.length)throw new Error('Barcode not found in the live database.');
    const cylinder=rows[0];
-   if(cylinder.status!=='IN_STOCK'||cylinder.active===false)throw new Error('Only active cylinders currently in stock can be returned to the supplier.');
+   if(!(['IN_STOCK','RETURNED_EMPTY'].includes(cylinder.status))||(cylinder.status==='IN_STOCK'&&cylinder.active===false))throw new Error('Only full cylinders in stock or empty cylinders returned by a customer can be sent to the supplier.');
    const types=await CylinderLive.cylinderTypes(),t=types.find(x=>x.id===cylinder.cylinder_type_id);
-   supplierReturnSession.push({barcode,type:(t?.stock_code||'')+(t?.gas_type?' — '+t.gas_type:'')+(t?.description?' — '+t.description:'')});
+   supplierReturnSession.push({barcode,condition:cylinder.cylinder_condition||'FULL',type:(t?.stock_code||'')+(t?.gas_type?' — '+t.gas_type:'')+(t?.description?' — '+t.description:'')});
    input.value='';msg.innerHTML='<p class="success">Added <b>'+esc(barcode)+'</b> to the Return to Supplier list.</p>';renderSupplierReturn();
  }catch(e){msg.innerHTML='<p class="warning">'+esc(e.message)+'</p>';}
 }
@@ -735,7 +736,8 @@ async function completeSupplierReturn(){
    const stos=[...new Set(items.map(x=>String(x.sto||'').trim()).filter(Boolean))];
    if(stos.length>1)throw new Error('This batch contains more than one STO. Split it into separate batches so each movement keeps the correct STO.');
    const notes=items.filter(x=>x.notes).map(x=>x.barcode+': '+x.notes).join(' | ');
-   const batchNote='Return to Supplier'+(notes?' — '+notes:'');
+   const userNote=document.getElementById('supplierReturnNote')?.value.trim()||'';
+   const batchNote='Return to Supplier'+(userNote?' — '+userNote:'')+(notes?' — '+notes:'');
    const result=await CylinderLive.movement({action:'SUPPLIER_RETURN',barcodes:items.map(x=>x.barcode),sto:stos[0]||null,note:batchNote});
    if(!result.ok)throw new Error(result.error||'Return to Supplier was not completed.');
    if(window.CYLINDER_STAGING_MODE===true){
@@ -803,14 +805,12 @@ async function completeSupplierReturn(){
          const cylinder=cylMap.get(barcode);
          if(!reason&&!code)reason='Missing Stock Code';
          else if(!reason&&!type)reason='Stock Code not found or inactive';
-         else if(!reason&&!cylinder)reason='Barcode is not yet in the cylinder register';
-         else if(!reason&&cylinder.active!==false&&['IN_STOCK','WITH_CUSTOMER'].includes(cylinder.status))reason='Cylinder is already active in company/customer stock';
-         else if(!reason&&cylinder.status!=='WITH_SUPPLIER')reason='Only cylinders currently recorded With Supplier can be received again';
+         else if(!reason&&cylinder&& !['WITH_SUPPLIER','ARCHIVED'].includes(cylinder.status))reason=cylinder.status==='IN_STOCK'?'Cylinder is already in company stock':cylinder.status==='WITH_CUSTOMER'?'Cylinder is currently with a customer':cylinder.status==='RETURNED_EMPTY'?'Empty cylinder must be sent to the supplier before it can be received again':'Cylinder is not archived with the supplier';
          return {...r,barcode,code,type,cylinder,reason};
        }else{
          const cylinder=cylMap.get(barcode);
          if(!reason&&!cylinder)reason='Barcode not found in cylinder register';
-         else if(!reason&&(cylinder.status!=='IN_STOCK'||cylinder.active===false))reason='Only active In Stock cylinders can be returned';
+         else if(!reason&&(!['IN_STOCK','RETURNED_EMPTY'].includes(cylinder.status)||(cylinder.status==='IN_STOCK'&&cylinder.active===false)))reason='Only full cylinders in stock or empty cylinders returned by a customer can be sent to the supplier';
          return {...r,barcode,cylinder,reason};
        }
        return {...r,barcode,reason};
@@ -889,6 +889,7 @@ async function findCylinder(){
     const statusLabel={
       IN_STOCK:'In Stock',
       WITH_CUSTOMER:'With Customer',
+      RETURNED_EMPTY:'Returned / Empty',
       WITH_SUPPLIER:'With Supplier',
       ARCHIVED:'Archived'
     }[c.status]||c.status;
@@ -911,6 +912,7 @@ async function findCylinder(){
       '<p><b>Gas:</b> '+esc(t?.gas_type||'')+'</p>'+
       '<p><b>Description:</b> '+esc(t?.description||'')+'</p>'+
       '<p><b>Status:</b> '+esc(statusLabel)+'</p>'+
+      '<p><b>Condition:</b> '+esc(c.cylinder_condition||'FULL')+'</p>'+
       '<p><b>Customer:</b> '+esc(customer?.name||'—')+'</p>'+
       '<h3>Movement History</h3>'+
       (history?'<ul>'+history+'</ul>':'<p class="muted">No movement history recorded.</p>')+
@@ -1575,7 +1577,7 @@ refresh();
     const rows=movements.map(m=>{const c=cylMap.get(m.cylinder_id)||{},t=typeMap.get(c.cylinder_type_id)||{},cu=customerMap.get(m.customer_id);return {...m,barcode:c.barcode||'—',status:c.status||'',gas_type:t.gas_type||'',stock_code:t.stock_code||'',description:t.description||'',customer_name:cu?.name||'—'}});
     return {rows,customers,types,cylinders};
   }
-  function supplierStatusLabel(s){const m={IN_STOCK:'In Stock',WITH_CUSTOMER:'With Customer',WITH_SUPPLIER:'With Supplier',RETURNED_EMPTY:'Returned / Empty'};return m[s]||String(s||'—').replace(/_/g,' ')}
+  function supplierStatusLabel(s){const m={IN_STOCK:'Full — In Stock',WITH_CUSTOMER:'With Customer',WITH_SUPPLIER:'With Supplier',RETURNED_EMPTY:'Returned / Empty'};return m[s]||String(s||'—').replace(/_/g,' ')}
   let supplierRows=[];
   window.loadSupplierMovement=async function(){
     const notice=document.getElementById('supplierReportNotice'),result=document.getElementById('supplierReportResult');notice.innerHTML='';result.innerHTML='<p class="muted">Loading live Supplier movement history…</p>';
