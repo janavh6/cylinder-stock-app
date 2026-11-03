@@ -1356,6 +1356,19 @@ refresh();
   });
  }
  function field(o,...names){for(const n of names){const v=o[n];if(v!==undefined&&v!=='')return v;}return ''}
+ function toISODate(v){
+  if(!v)return '';
+  const x=String(v).trim();
+  if(/^\\d{4}-\\d{2}-\\d{2}$/.test(x))return x;
+  let m=x.match(/^(\\d{1,2})[\\/.-](\\d{1,2})[\\/.-](\\d{4})$/);
+  if(m){const dd=m[1].padStart(2,'0'),mm=m[2].padStart(2,'0');return m[3]+'-'+mm+'-'+dd;}
+  const serial=Number(x);
+  if(Number.isFinite(serial)&&serial>20000&&serial<80000){
+   const d=new Date(Date.UTC(1899,11,30)+serial*86400000);
+   return d.toISOString().slice(0,10);
+  }
+  throw new Error('Unrecognised date format in CSV: '+x+'. Use YYYY-MM-DD or DD/MM/YYYY.');
+ }
  async function fileRows(id){const f=document.getElementById(id).files[0];if(!f)throw new Error('Please choose all three CSV files.');return parseCSV(await f.text())}
  window.validateOpeningSnapshot=async function(){
   const out=document.getElementById('openingImportResult');
@@ -1385,7 +1398,7 @@ refresh();
      stock_code:field(r,'stockcode','code'),
      customer_account_number:customer?.account_number||'',
      condition:(field(r,'condition')||'FULL').toUpperCase(),
-     date_send:field(r,'datesend','datesent'),
+     date_send:toISODate(field(r,'datesend','datesent')),
      invoice_number:field(r,'invoicenumber','invoice')
     };
    });
