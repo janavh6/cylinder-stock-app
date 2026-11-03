@@ -244,10 +244,29 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 </div>
 <hr>
 <div class="card">
+<h3>📥 Import Opening Customer Stock (Excel CSV files)</h3>
+<p class="muted">Use this for the current opening snapshot from Stock.xlsx only. It does not import old movements or unused warehouse stock. This staging screen validates the files only and never changes records.</p>
+<button class="primary" onclick="show('openingImport')">Open Opening Snapshot Import</button>
+</div>
+<hr>
+<div class="card">
 <h3>🔄 9 November 2026 — Go-Live Stock Take</h3>
 <p class="muted">This is the controlled reset point for the new live system. It does <b>not</b> delete previous history. You will scan the cylinders physically at your company and then scan the cylinders physically held by each customer.</p>
 <button class="primary" onclick="show('goLiveReset')">Open Go-Live Stock Take</button>
 </div>
+</div></section>
+
+<section id="openingImport" class="page hidden">
+<div class="card">
+<button onclick="show('settings')">← Back to Settings</button>
+<h2>Opening Customer Stock — Validation Only</h2>
+<p><b>Important:</b> Select the three CSV files exported from the corrected workbook. This validates customer accounts, cylinder types and the 118 customer-held cylinders. It does not save any data.</p>
+<label>Snapshot date<input id="openingSnapshotDate" type="date" value="2026-11-09"></label>
+<label>Customers CSV<input id="openingCustomersFile" type="file" accept=".csv,text/csv"></label>
+<label>Cylinder Types CSV<input id="openingTypesFile" type="file" accept=".csv,text/csv"></label>
+<label>Opening Customer Stock CSV<input id="openingStockFile" type="file" accept=".csv,text/csv"></label>
+<button class="primary" onclick="validateOpeningSnapshot()">Validate Files — No Changes</button>
+<div id="openingImportResult"><p class="muted">Choose all three files, then validate.</p></div>
 </div></section>
 
 <section id="goLiveReset" class="page hidden">
@@ -1315,6 +1334,71 @@ refresh();
 </script>
 
 <script>
+/* OPENING SNAPSHOT CSV VALIDATOR — staging simulation only */
+(function(){
+ function parseCSV(text){
+  const rows=[]; let row=[],field='',quoted=false;
+  text=String(text||'').replace(/^\\uFEFF/,'');
+  for(let i=0;i<text.length;i++){
+   const ch=text[i],next=text[i+1];
+   if(quoted){if(ch==='"'&&next==='"'){field+='"';i++}else if(ch==='"'){quoted=false}else field+=ch}
+   else if(ch==='"')quoted=true;
+   else if(ch===','){row.push(field);field=''}
+   else if(ch==='\\n'){row.push(field);rows.push(row);row=[];field=''}
+   else if(ch!=='\\r')field+=ch;
+  }
+  row.push(field); if(row.some(x=>x!==''))rows.push(row);
+  if(rows.length<2)throw new Error('CSV file is empty or has no data rows.');
+  const headers=rows.shift().map(x=>x.trim().toLowerCase().replace(/[^a-z0-9]/g,''));
+  return rows.filter(r=>r.some(x=>String(x||'').trim()!=='')).map(r=>{
+   const o={};headers.forEach((h,i)=>o[h]=String(r[i]??'').trim());return o;
+  });
+ }
+ function field(o,...names){for(const n of names){const v=o[n];if(v!==undefined&&v!=='')return v;}return ''}
+ async function fileRows(id){const f=document.getElementById(id).files[0];if(!f)throw new Error('Please choose all three CSV files.');return parseCSV(await f.text())}
+ window.validateOpeningSnapshot=async function(){
+  const out=document.getElementById('openingImportResult');
+  out.innerHTML='<p class="muted">Reading files and checking the opening snapshot…</p>';
+  try{
+   if(!window.CylinderLive)throw new Error('Sign in and refresh the page before importing.');
+   const [rawCustomers,rawTypes,rawStock,existingTypes]=await Promise.all([
+    fileRows('openingCustomersFile'),fileRows('openingTypesFile'),fileRows('openingStockFile'),CylinderLive.cylinderTypes()
+   ]);
+   const customers=rawCustomers.map(r=>({
+    name:field(r,'customername','customer'),
+    account_number:field(r,'accountnumber','accountno','account'),
+    contact_details:field(r,'contactdetails','contact','telephone','phonenumber')
+   }));
+   const typeMap=new Map(existingTypes.map(t=>[String(t.stock_code).trim(),t.gas_type]));
+   const types=rawTypes.map(r=>{
+    const code=field(r,'stockcode','code');
+    const desc=field(r,'type','description','cylindertype');
+    return {stock_code:code,gas_type:typeMap.get(code)||desc,description:desc};
+   });
+   const byName=new Map(customers.map(c=>[c.name.trim().toLowerCase(),c]));
+   const cylinders=rawStock.map(r=>{
+    const customerName=field(r,'customer','customername');
+    const customer=byName.get(customerName.trim().toLowerCase());
+    return {
+     barcode:field(r,'barcode'),
+     stock_code:field(r,'stockcode','code'),
+     customer_account_number:customer?.account_number||'',
+     condition:(field(r,'condition')||'FULL').toUpperCase(),
+     date_send:field(r,'datesend','datesent'),
+     invoice_number:field(r,'invoicenumber','invoice')
+    };
+   });
+   const missingCustomer=cylinders.filter(x=>!x.customer_account_number);
+   if(missingCustomer.length)throw new Error(missingCustomer.length+' stock row(s) could not be matched to a customer name in the Customers CSV. Check spelling and customer names.');
+   const date=document.getElementById('openingSnapshotDate').value;
+   const result=await CylinderLive.request('/functions/v1/'+(window.CYLINDER_SUPABASE?.movementFunction||'cylinder-movement-staging'),{
+    method:'POST',body:JSON.stringify({action:'OPENING_SNAPSHOT_VALIDATE',snapshot_date:date,customers,types,cylinders})
+   });
+   if(!result.ok||result.simulated!==true||result.validation_only!==true)throw new Error(result.error||'The server did not confirm a validation-only response.');
+   out.innerHTML='<div class="card"><h3>Validation passed — no records changed</h3><p><b>'+result.customers+' customers</b></p><p><b>'+result.types+' cylinder types</b></p><p><b>'+result.cylinders+' customer-held cylinders</b></p><p>Snapshot date: '+esc(result.snapshot_date)+'</p><p>'+esc(result.message||'All checks passed. No records were changed.')+'</p><p class="muted">Blank invoice numbers are retained as pending. No old movements or unused company stock are imported.</p></div>';
+  }catch(e){out.innerHTML='<p class="warning"><b>Validation did not pass.</b><br>'+esc(e.message)+'</p>'}
+ };
+})();
 /* V6 LIVE SCAN OUT — database path only; approved UI remains unchanged. */
 (function(){
  window.addOut=async function(){
