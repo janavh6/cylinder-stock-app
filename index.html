@@ -534,7 +534,8 @@ async function openCustomerDetail(name){
 
         document.getElementById('customerDetailName').textContent=customer.name;
         document.getElementById('customerDetailInfo').innerHTML=
-          `<p><b>Telephone:</b> ${esc(customer.telephone||'—')}</p>
+          `<p><b>Account number:</b> ${esc(customer.account_number||'—')}</p>
+           <p><b>Contact details:</b> ${esc(customer.contact_details||customer.telephone||'—')}</p>
            <p><b>Delivery address:</b> ${esc(customer.delivery_address||'—')}</p>
            <p><b>Status:</b> Active</p>`;
 
@@ -1325,7 +1326,7 @@ refresh();
    return d;
   },
   async movement(payload){return this.request("/functions/v1/"+cfg.movementFunction,{method:"POST",body:JSON.stringify({...payload,dry_run:true})})},
-  async customers(){return this.request("/rest/v1/customers?select=id,name,telephone,delivery_address,email,active&active=eq.true&order=name.asc")},
+  async customers(){return this.request("/rest/v1/customers?select=id,name,telephone,delivery_address,email,account_number,contact_details,active&active=eq.true&order=name.asc")},
   async cylinderTypes(){return this.request("/rest/v1/cylinder_types?select=id,stock_code,gas_type,description,active&active=eq.true&order=stock_code.asc")},
   async allCylinders(){return this.request("/rest/v1/cylinders?select=id,barcode,cylinder_type_id,sto,status,customer_id,active,cylinder_condition&order=barcode.asc")},
   async cylindersByBarcode(barcodes){const u=[...new Set(barcodes)]; if(!u.length)return[]; const encoded=u.map(v=>`"${v.replace(/"/g,'\\"')}"`).join(','); return this.request("/rest/v1/cylinders?select=id,barcode,cylinder_type_id,sto,status,customer_id,active,cylinder_condition&barcode=in.("+encodeURIComponent(encoded)+")")}
@@ -1397,6 +1398,36 @@ refresh();
    if(!result.ok||result.simulated!==true||result.validation_only!==true)throw new Error(result.error||'The server did not confirm a validation-only response.');
    out.innerHTML='<div class="card"><h3>Validation passed — no records changed</h3><p><b>'+result.customers+' customers</b></p><p><b>'+result.types+' cylinder types</b></p><p><b>'+result.cylinders+' customer-held cylinders</b></p><p>Snapshot date: '+esc(result.snapshot_date)+'</p><p>'+esc(result.message||'All checks passed. No records were changed.')+'</p><p class="muted">Blank invoice numbers are retained as pending. No old movements or unused company stock are imported.</p></div>';
   }catch(e){out.innerHTML='<p class="warning"><b>Validation did not pass.</b><br>'+esc(e.message)+'</p>'}
+ };
+})();
+/* LIVE CUSTOMER PICKLIST AND RECEIVING TYPE LOOKUP */
+(function(){
+ const oldRefresh=window.refresh;
+ window.refresh=async function(){
+  await oldRefresh();
+  try{
+   const customers=await CylinderLive.customers();
+   document.getElementById('customerList').innerHTML=customers.map(c=>'<option value="'+esc(c.name)+'">').join('');
+   const types=await CylinderLive.cylinderTypes();
+   opts('receiveType',types.map(t=>t.stock_code+' — '+t.description));
+  }catch(e){}
+ };
+ window.addReceive=async function(){
+  const bc=document.getElementById('receiveBarcode').value.trim();
+  const selected=document.getElementById('receiveType').value;
+  const code=selected.split(' — ')[0];
+  if(!bc||!code)return;
+  if(!validBarcode(bc)){alert('Barcode is not valid. It must start with 710311 and contain 8 digits after it.');return}
+  if(receiveSession.some(x=>x.barcode===bc)){alert('This barcode is already queued for receiving.');return}
+  try{
+   const types=await CylinderLive.cylinderTypes();
+   const t=types.find(x=>x.stock_code===code);
+   if(!t)throw new Error('Please select an active cylinder type from the live database.');
+   const existing=await CylinderLive.cylindersByBarcode([bc]);
+   if(existing.length && !(['WITH_SUPPLIER','ARCHIVED'].includes(existing[0].status)))throw new Error('This barcode is already registered and is not archived with the supplier.');
+   receiveSession.push({barcode:bc,code:t.stock_code,gas:t.gas_type,description:t.description});
+   document.getElementById('receiveBarcode').value='';renderReceive();
+  }catch(e){alert('Could not queue this cylinder.\\n'+e.message)}
  };
 })();
 /* V6 LIVE SCAN OUT — database path only; approved UI remains unchanged. */
