@@ -1856,6 +1856,27 @@ refresh();
   if(data.session?.user)unlock(data.session.user);
   else lock("Please sign in with your approved Google account.");
  }).catch(e=>lock(e?.message||"Unable to check sign-in. Refresh and try again."));
-})();
+})();<script>
+setInterval(() => {
+  const table = document.getElementById('customerTable');
+  if (!table) return;
+  table.querySelectorAll('tr').forEach(tr => {
+    const nameEl = tr.querySelector('td b');
+    if (!nameEl) return;
+    const custName = nameEl.textContent.trim();
+    tr.querySelectorAll('button').forEach(btn => {
+      const label = btn.textContent.trim();
+      if (label === 'Edit' && !btn.dataset.fixed) {
+        btn.dataset.fixed = '1';
+        btn.onclick = () => openCustomerForm(custName);
+      } else if (label === 'Open' && !btn.dataset.fixed) {
+        btn.dataset.fixed = '1';
+        btn.onclick = () => openCustomerDetail(custName);
+      }
+    });
+  });
+}, 500);
+</script>
+
 </script>
 </body></html>
