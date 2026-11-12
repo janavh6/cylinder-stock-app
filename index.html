@@ -1856,7 +1856,7 @@ refresh();
   if(data.session?.user)unlock(data.session.user);
   else lock("Please sign in with your approved Google account.");
  }).catch(e=>lock(e?.message||"Unable to check sign-in. Refresh and try again."));
-})();<script>
+})();
 setInterval(() => {
   const table = document.getElementById('customerTable');
   if (!table) return;
@@ -1876,7 +1876,6 @@ setInterval(() => {
     });
   });
 }, 500);
-</script>
 
 </script>
 </body></html>
