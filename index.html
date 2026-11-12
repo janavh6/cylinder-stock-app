@@ -513,7 +513,22 @@ async function refresh(){
   renderOut();
   renderReceive();
 }
-function openCustomerForm(name=''){document.getElementById('editingCustomer').value=name;document.getElementById('customerFormTitle').textContent=name?'Edit Customer':'Add Customer';document.getElementById('formCustomerName').value=name;const d=db.customerInfo?.[name]||{};document.getElementById('formCustomerPhone').value=d.phone||'';document.getElementById('formCustomerAddress').value=d.address||'';show('customerForm')}
+async function openCustomerForm(name=''){
+  document.getElementById('editingCustomer').value=name;
+  document.getElementById('customerFormTitle').textContent=name?'Edit Customer':'Add Customer';
+  document.getElementById('formCustomerName').value=name;
+  document.getElementById('formCustomerPhone').value='';
+  document.getElementById('formCustomerAddress').value='';
+  show('customerForm');
+  const client=window.cylinderAuthClient;
+  if(name&&client){
+    const {data}=await client.from('customers').select('telephone,delivery_address').eq('name',name).maybeSingle();
+    if(data){
+      document.getElementById('formCustomerPhone').value=data.telephone||'';
+      document.getElementById('formCustomerAddress').value=data.delivery_address||'';
+    }
+  }
+}
 async function saveCustomerForm(){
   const old=document.getElementById('editingCustomer').value;
   const name=document.getElementById('formCustomerName').value.trim();
@@ -536,7 +551,7 @@ async function saveCustomerForm(){
   else if(!old&&!db.customers.includes(name)){db.customers.push(name);}
   db.customerMeta[name]={...(db.customerMeta[name]||{}),phone:telephone,address:delivery_address,archived:false};
   save();
-  show('customers');
+  alert('Customer saved successfully.');show('customers');
 }
 
 function archiveCustomer(name){if(currentCustomerCount(name)>0){alert('This customer still has cylinders. Return all cylinders before archiving.');return}if(confirm('Archive '+name+'? They will be hidden from normal customer selection but their history will stay safe.')){db.customerMeta[name]={...(db.customerMeta[name]||{}),archived:true};save()}}
