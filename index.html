@@ -514,8 +514,31 @@ async function refresh(){
   renderReceive();
 }
 function openCustomerForm(name=''){document.getElementById('editingCustomer').value=name;document.getElementById('customerFormTitle').textContent=name?'Edit Customer':'Add Customer';document.getElementById('formCustomerName').value=name;const d=db.customerInfo?.[name]||{};document.getElementById('formCustomerPhone').value=d.phone||'';document.getElementById('formCustomerAddress').value=d.address||'';show('customerForm')}
-function saveCustomerForm(){const old=document.getElementById('editingCustomer').value,name=document.getElementById('formCustomerName').value.trim();if(!name){alert('Customer name is required.');return}db.customerInfo=db.customerInfo||{};db.customerMeta=db.customerMeta||{};const phone=document.getElementById('formCustomerPhone').value.trim(),address=document.getElementById('formCustomerAddress').value.trim();if(old&&old!==name){if(db.customers.includes(name)){alert('A customer with that name already exists.');return}db.customers=db.customers.filter(x=>x!==old);db.customers.push(name);db.cylinders.forEach(c=>{if(c.customer===old)c.customer=name;(c.history||[]).forEach(h=>{if(h.customer===old)h.customer=name})});if(db.customerInfo[old]){db.customerInfo[name]=db.customerInfo[old];delete db.customerInfo[old]}if(db.customerMeta[old]){db.customerMeta[name]=db.customerMeta[old];delete db.customerMeta[old]}}else if(!old&&!db.customers.includes(name))db.customers.push(name);db.customerInfo[name]={phone,address};save();show('customers')}
-function editCustomer(name){openCustomerForm(name)}
+async function saveCustomerForm(){
+  const old=document.getElementById('editingCustomer').value;
+  const name=document.getElementById('formCustomerName').value.trim();
+  const telephone=document.getElementById('formCustomerPhone').value.trim();
+  const delivery_address=document.getElementById('formCustomerAddress').value.trim();
+  if(!name){alert('Please enter a customer name.');return;}
+  const client=window.cylinderAuthClient;
+  if(client){
+    try{
+      if(old){
+        const {error}=await client.from('customers').update({name,telephone,delivery_address}).eq('name',old);
+        if(error)throw error;
+      }else{
+        const {error}=await client.from('customers').insert([{name,telephone,delivery_address,active:true}]);
+        if(error)throw error;
+      }
+    }catch(e){alert('Could not save customer to database: '+(e.message||e));return;}
+  }
+  if(old&&old!==name){db.customers=db.customers.map(c=>c===old?name:c);}
+  else if(!old&&!db.customers.includes(name)){db.customers.push(name);}
+  db.customerMeta[name]={...(db.customerMeta[name]||{}),phone:telephone,address:delivery_address,archived:false};
+  save();
+  show('customers');
+}
+
 function archiveCustomer(name){if(currentCustomerCount(name)>0){alert('This customer still has cylinders. Return all cylinders before archiving.');return}if(confirm('Archive '+name+'? They will be hidden from normal customer selection but their history will stay safe.')){db.customerMeta[name]={...(db.customerMeta[name]||{}),archived:true};save()}}
 function restoreCustomer(name){db.customerMeta[name]={...(db.customerMeta[name]||{}),archived:false};save()}
 function deleteCustomer(name){if(currentCustomerCount(name)>0||customerHasHistory(name)){alert('This customer has cylinder history and cannot be deleted. Archive them instead.');return}if(confirm('Delete '+name+' permanently?')){db.customers=db.customers.filter(x=>x!==name);delete db.customerInfo[name];delete db.customerMeta[name];save()}}
