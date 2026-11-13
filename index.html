@@ -445,6 +445,8 @@ async function refresh(){
             document.getElementById('emptyCount').textContent=cylinders.filter(x=>x.status==='RETURNED_EMPTY'&&x.active!==false).length;
       document.getElementById('unknownConditionCount').textContent=cylinders.filter(x=>x.status==='IN_STOCK'&&x.cylinder_condition==='UNKNOWN'&&x.active!==false).length;
       document.getElementById('custCount').textContent=customers.filter(x=>x.active!==false).length;
+document.getElementById('outCustomerSearch').innerHTML='<option value="">-- Select a customer --</option>'+customers.filter(x=>x.active!==false).map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+
 
       const q=(document.getElementById('customerSearch')?.value||'').trim().toLowerCase();
       const typeMap=new Map(types.map(t=>[t.id,t]));
