@@ -39,7 +39,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
     <p id="authMessage" role="status" aria-live="polite">Checking sign-in…</p>
   </div>
 </div>
-<header><div class="wrap"><h1>Cylinder Control — Version 1</h1><div>TEST VERSION — movements are simulated and will NOT change live stock</div><button id="googleSignOut" type="button" hidden style="margin-top:12px;background:#e3eaf1;color:#17202a">Sign out</button></div></header>
+<header><div class="wrap"><h1>Cylinder Control — Version 1</h1><div>LIVE PRODUCTION — real-time cylinder stock tracking</div><button id="googleSignOut" type="button" hidden style="margin-top:12px;background:#e3eaf1;color:#17202a">Sign out</button></div></header>
 <div class="wrap">
 <nav>
 <button class="navbtn" data-page="dashboard" onclick="show('dashboard')">Dashboard</button>
@@ -1355,7 +1355,7 @@ refresh();
    const method=String(options.method||"GET").toUpperCase();
    const isStagingMovement=path.startsWith("/functions/v1/cylinder-movement-staging");
    const isAllowedStagingRentalWrite=method==="POST" && (path.startsWith("/rest/v1/rental_adjustments") || path.startsWith("/rest/v1/rpc/set_customer_rental_rate"));
-   if(window.CYLINDER_STAGING_MODE===true && !["GET","HEAD","OPTIONS"].includes(method) && !isStagingMovement && !isAllowedStagingRentalWrite) {
+   if(false && !["GET","HEAD","OPTIONS"].includes(method) && !isStagingMovement && !isAllowedStagingRentalWrite) {
     throw new Error("TEST MODE: this change is not permitted from the staging screen.");
    }
    const headers=Object.assign({apikey:cfg.publishableKey,Authorization:"Bearer "+session.access_token,"Content-Type":"application/json"},options.headers||{});
@@ -1364,7 +1364,7 @@ refresh();
    if(!r.ok) throw new Error(d.error||d.message||("Supabase request failed: "+r.status));
    return d;
   },
-  async movement(payload){return this.request("/functions/v1/"+cfg.movementFunction,{method:"POST",body:JSON.stringify({...payload,dry_run:true})})},
+  async movement(payload){return this.request("/functions/v1/cylinder-movement",{method:"POST",body:JSON.stringify({...payload,dry_run:false})})},
   async customers(){return this.request("/rest/v1/customers?select=id,name,telephone,delivery_address,email,account_number,contact_details,active&active=eq.true&order=name.asc")},
   async cylinderTypes(){return this.request("/rest/v1/cylinder_types?select=id,stock_code,gas_type,description,active&active=eq.true&order=stock_code.asc")},
   async allCylinders(){return this.request("/rest/v1/cylinders?select=id,barcode,cylinder_type_id,sto,status,customer_id,active,cylinder_condition&order=barcode.asc")},
