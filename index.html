@@ -68,7 +68,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 
 <section id="out" class="page hidden">
 <div class="card"><h2>SCAN OUT — customer first</h2>
-<div class="row"><label>Customer<input id="outCustomerSearch" list="customerList" oninput="syncOutCustomer()" placeholder="Start typing customer name..."><datalist id="customerList"></datalist></label>
+<div class="row"><label>Customer<select id="outCustomerSearch" onchange="syncOutCustomer()"><option value="">-- Select a customer --</option></select></label>
 <label>Invoice / Reference<input id="outInvoice" placeholder="Enter invoice number, or Pnet for Partnernet"></label></div>
 <div id="scanner"><h3>Scan / enter cylinder barcode</h3>
 <input id="outBarcode" placeholder="710311 + 8 digits" onkeydown="enterAddOut(event)">
