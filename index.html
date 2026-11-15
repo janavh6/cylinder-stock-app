@@ -39,7 +39,9 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
     <p id="authMessage" role="status" aria-live="polite">Checking sign-in…</p>
   </div>
 </div>
-<header><div class="wrap"><h1>Cylinder Control — Version 1</h1><div>LIVE PRODUCTION — real-time cylinder stock tracking</div><button id="googleSignOut" type="button" hidden style="margin-top:12px;background:#e3eaf1;color:#17202a">Sign out</button></div></header>
+<header><div class="wrap"><h1>Cylinder Control — Version 1</h1><div>STAGING — simulated movements only; no live stock changes</div><button id="googleSignOut" type="button" hidden style="margin-top:12px;background:#e3eaf1;color:#17202a">Sign out</button></div></header>
+<div id="liveDataStatus" class="card" role="status" aria-live="polite" style="margin:12px auto;max-width:1100px;border-left:5px solid #64748b">Live data status: waiting for connection check.</div>
+<datalist id="customerList"></datalist>
 <div class="wrap">
 <nav>
 <button class="navbtn" data-page="dashboard" onclick="show('dashboard')">Dashboard</button>
@@ -111,7 +113,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
  <div class="card"><h2>Return To Supplier</h2>
  <p class="muted">Return full faulty cylinders or empty returned cylinders to the supplier. The app records their condition and archives the cylinder cycle. This staging version only simulates the movement.</p>
  <input id="supplierReturnBarcode" placeholder="710311 + 8 digits" onkeydown="enterSupplierReturn(event)">
- <label>Return note / fault reason (optional)<input id="supplierReturnNote" placeholder="e.g. Faulty valve, damaged cylinder"></label>
+ <div class="row"><label>STO / Supplier order number<input id="supplierReturnSto" placeholder="STO (optional)"></label><label>Return note / fault reason (optional)<input id="supplierReturnNote" placeholder="e.g. Faulty valve, damaged cylinder"></label></div>
  <button class="primary" onclick="addSupplierReturn()">Add Cylinder</button>
  <button onclick="startCameraScan('supplierReturn')">📷 SCAN WITH CAMERA</button>
  <div id="supplierReturnCameraMsg" class="muted"></div>
@@ -418,6 +420,8 @@ function activeCustomers(){return db.customers.filter(c=>!(db.customerMeta[c]&&d
 function customerHasHistory(name){return db.cylinders.some(c=>c.customer===name || (c.history||[]).some(h=>h.customer===name))}
 function currentCustomerCount(name){return db.cylinders.filter(c=>c.status==='With Customer'&&c.customer===name).length}
 async function refresh(){
+  const liveStatus=document.getElementById('liveDataStatus');
+  if(liveStatus){liveStatus.style.borderLeftColor='#64748b';liveStatus.textContent='Live data status: connecting to the stock database…';}
   // Keep the existing V6 local UI immediately responsive.
   document.getElementById('stockCount').textContent=db.cylinders.filter(c=>c.status==='In Stock').length;
   document.getElementById('customerCount').textContent=db.cylinders.filter(c=>c.status==='With Customer').length;
@@ -437,6 +441,7 @@ async function refresh(){
         CylinderLive.allCylinders(),
         CylinderLive.cylinderTypes()
       ]);
+      if(liveStatus){liveStatus.style.borderLeftColor='#15803d';liveStatus.textContent='Live data status: connected — stock, customers and cylinder types loaded from Supabase.';}
 
       // Staging dashboard totals always come from live Supabase reads, never the legacy local cache.
       document.getElementById('stockCount').textContent=cylinders.filter(x=>x.status==='IN_STOCK'&&x.active!==false).length;
@@ -483,8 +488,10 @@ document.getElementById('outCustomerSearch').innerHTML='<option value="">-- Sele
       return;
     }
   }catch(e){
-    // If live customer loading fails, retain the working V6 local list.
+    // Keep the local UI available, but make it unmistakable that it is not live data.
+    if(liveStatus){liveStatus.style.borderLeftColor='#b91c1c';liveStatus.textContent='LIVE DATA ERROR — showing local/cached data only. Do not use these figures to make stock or supplier decisions. Details: '+(e?.message||String(e));}
   }
+  if(!window.CylinderLive&&liveStatus){liveStatus.style.borderLeftColor='#b91c1c';liveStatus.textContent='LIVE DATA UNAVAILABLE — this page is using local/cached data only. Do not use these figures to make stock or supplier decisions.';}
 
   const q=(document.getElementById('customerSearch')?.value||'').trim().toLowerCase();
   const rows=localCustomers
@@ -775,7 +782,7 @@ function renderSupplierReturn(){
  const list=document.getElementById('supplierReturnList'); if(!list)return;
  if(!supplierReturnSession.length){list.innerHTML='<p class="muted">No cylinders queued yet.</p>';return;}
  list.innerHTML='<div class="card"><p><b>'+supplierReturnSession.length+' cylinders queued for return to supplier</b></p><details open><summary>Show queued cylinders</summary><ol>'+
- supplierReturnSession.map((x,i)=>'<li>'+esc(x.barcode)+' — '+esc(x.condition==='EMPTY'?'Empty':x.condition==='UNKNOWN'?'Condition not confirmed':'Full / potentially faulty')+' — '+esc(x.type)+' <button onclick="supplierReturnSession.splice('+i+',1);renderSupplierReturn()">Remove</button></li>').join('')+
+ supplierReturnSession.map((x,i)=>'<li>'+esc(x.barcode)+' — '+esc(x.condition==='EMPTY'?'Empty':x.condition==='UNKNOWN'?'Condition not confirmed':'Full / potentially faulty')+' — '+esc(x.type)+(x.sto?' — STO: '+esc(x.sto):'')+' <button onclick="supplierReturnSession.splice('+i+',1);renderSupplierReturn()">Remove</button></li>').join('')+
  '</ol></details></div>';
 }
 async function addSupplierReturn(){
@@ -789,7 +796,7 @@ async function addSupplierReturn(){
    const cylinder=rows[0];
    if(!(['IN_STOCK','RETURNED_EMPTY'].includes(cylinder.status))||(cylinder.status==='IN_STOCK'&&cylinder.active===false))throw new Error('Only full cylinders in stock or empty cylinders returned by a customer can be sent to the supplier.');
    const types=await CylinderLive.cylinderTypes(),t=types.find(x=>x.id===cylinder.cylinder_type_id);
-   supplierReturnSession.push({barcode,condition:cylinder.cylinder_condition||'UNKNOWN',type:(t?.stock_code||'')+(t?.gas_type?' — '+t.gas_type:'')+(t?.description?' — '+t.description:'')});
+   supplierReturnSession.push({barcode,condition:cylinder.cylinder_condition||'UNKNOWN',type:(t?.stock_code||'')+(t?.gas_type?' — '+t.gas_type:'')+(t?.description?' — '+t.description:''),sto:document.getElementById('supplierReturnSto')?.value.trim()||null,notes:''});
    input.value='';msg.innerHTML='<p class="success">Added <b>'+esc(barcode)+'</b> to the Return to Supplier list.</p>';renderSupplierReturn();
  }catch(e){msg.innerHTML='<p class="warning">'+esc(e.message)+'</p>';}
 }
@@ -804,11 +811,15 @@ async function completeSupplierReturn(){
    const userNote=document.getElementById('supplierReturnNote')?.value.trim()||'';
    const batchNote='Return to Supplier'+(userNote?' — '+userNote:'')+(notes?' — '+notes:'');
    const result=await CylinderLive.movement({action:'SUPPLIER_RETURN',barcodes:items.map(x=>x.barcode),sto:stos[0]||null,note:batchNote});
-   if(!result.ok)throw new Error(result.error||'Return to Supplier was not completed.');
-     supplierReturnSession=[];
-    if(typeof renderSupplierReturn==='function')renderSupplierReturn();
-    if(typeof refresh==='function')await refresh();
-    msg.innerHTML='<p class="success"><b>Return To Supplier Completed.</b> '+items.length+' cylinder(s) archived and updated in live stock.</p>';
+   if(!result||result.ok!==true)throw new Error(result?.error||'Return to Supplier was not completed.');
+   if(result.simulated===true){
+     msg.innerHTML='<p class="success"><b>Staging simulation passed.</b> '+items.length+' cylinder(s) validated; no stock was changed. The queue has been kept so it can be reviewed or tested again.</p>';
+     return;
+   }
+   supplierReturnSession=[];
+   if(typeof renderSupplierReturn==='function')renderSupplierReturn();
+   if(typeof refresh==='function')await refresh();
+   msg.innerHTML='<p class="success"><b>Return To Supplier recorded.</b> '+items.length+' cylinder(s) were updated by the server.</p>';
  }catch(e){msg.innerHTML='<p class="warning"><b>Return To Supplier Was Not Completed.</b><br>No cylinder was changed in the app.<br>'+esc(e.message)+'</p>';}
 }
 
@@ -986,8 +997,7 @@ async function findCylinder(){
 let goLiveCompanySession=[],goLiveCustomerSession=[];
 function enterGoLiveCompany(e){if(e.key==='Enter'){e.preventDefault();addGoLiveCompany()}}
 function enterGoLiveCustomer(e){if(e.key==='Enter'){e.preventDefault();addGoLiveCustomer()}}
-async function initGoLiveReset(){
-  const status=document.getElementById('goLiveResetStatus');
+async function initGoLiveReset(){  const status=document.getElementById('goLiveResetStatus');
   document.querySelectorAll('#goLiveReset input,#goLiveReset select,#goLiveReset button').forEach(el=>{
     if(el.getAttribute("onclick")!=="show('settings')")el.disabled=true;
   });
@@ -1123,6 +1133,7 @@ async function rentalData(){
     fetchAllRentalAdjustmentAudit()
   ]);
   return {customers,cylinders,types,movements,adjustments,goLiveResets,goLiveBalances,rates,adjustmentAudit};
+}
 function calcCustomerRental(customerId, data, period){
   const typeMap=new Map(data.types.map(t=>[t.id,t]));
   const cylMap=new Map(data.cylinders.map(c=>[c.id,c]));
@@ -1320,8 +1331,23 @@ function printCustomerDetail(){const name=document.getElementById('customerDetai
 function printRental(){if(!window.lastRental||!document.getElementById('rentalResult').innerHTML.trim()){alert('Please calculate the rental first.');return}printWindow('Monthly Rental — '+window.lastRental.period.startDate+' to '+window.lastRental.period.endDate,document.getElementById('rentalResult').innerHTML)}
 const dailyDate=document.getElementById('dailyReportDate'); if(dailyDate&&!dailyDate.value) dailyDate.value=localISODate();
 rentalDateDefaults();
-async function startCameraScan(mode){stopCameraScan();cameraMode=mode;const msg=document.getElementById(mode==='out'?'outCameraMsg':mode==='receive'?'receiveCameraMsg':mode==='return'?'returnCameraMsg':mode==='goLiveCompany'?'goLiveCompanyCameraMsg':mode==='goLiveCustomer'?'goLiveCustomerCameraMsg':'findCameraMsg');if(!('BarcodeDetector' in window)){msg.innerHTML='<span class="warning">Camera barcode scanning is not supported by this browser. Use the manual field or a phone/browser with BarcodeDetector support.</span>';return}try{cameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});const video=document.createElement('video');video.id='cameraVideo';video.autoplay=true;video.playsInline=true;video.muted=true;video.srcObject=cameraStream;msg.innerHTML='Point the camera at the barcode…';msg.appendChild(video);const detector=new BarcodeDetector({formats:['code_128','ean_13','ean_8','upc_a','upc_e']});const scan=async()=>{if(!cameraStream)return;try{const codes=await detector.detect(video);if(codes.length){const value=(codes[0].rawValue||'').trim();document.getElementById(mode==='out'?'outBarcode':mode==='receive'?'receiveBarcode':mode==='return'?'returnBarcode':mode==='goLiveCompany'?'goLiveCompanyBarcode':mode==='goLiveCustomer'?'goLiveCustomerBarcode':'findBarcode').value=value;if(mode==='out')addOut();else if(mode==='receive')addReceive();else if(mode==='return')addReturn();else if(mode==='goLiveCompany')addGoLiveCompany();else if(mode==='goLiveCustomer')addGoLiveCustomer();else findCylinder();stopCameraScan();return}}catch(e){}requestAnimationFrame(scan)};video.onloadedmetadata=()=>scan()}catch(e){msg.innerHTML='<span class="warning">Camera access was not available. Check browser camera permission, or use manual entry.</span>'}}
-function stopCameraScan(){if(cameraStream){cameraStream.getTracks().forEach(t=>t.stop());cameraStream=null}const a=document.getElementById('outCameraMsg'),b=document.getElementById('receiveCameraMsg'),c=document.getElementById('returnCameraMsg'),d=document.getElementById('findCameraMsg');[a,b,c,d].forEach(x=>{if(x&&!cameraStream)x.innerHTML=''})}
+async function startCameraScan(mode){
+ stopCameraScan();cameraMode=mode;
+ const targets={out:['outCameraMsg','outBarcode'],receive:['receiveCameraMsg','receiveBarcode'],return:['returnCameraMsg','returnBarcode'],supplierReturn:['supplierReturnCameraMsg','supplierReturnBarcode'],goLiveCompany:['goLiveCompanyCameraMsg','goLiveCompanyBarcode'],goLiveCustomer:['goLiveCustomerCameraMsg','goLiveCustomerBarcode'],find:['findCameraMsg','findBarcode']};
+ const target=targets[mode]||targets.find, msg=document.getElementById(target[0]);
+ if(!('BarcodeDetector' in window)){msg.innerHTML='<span class="warning">Camera barcode scanning is not supported by this browser. Use the manual field or a phone/browser with BarcodeDetector support.</span>';return}
+ try{
+  cameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}});
+  const video=document.createElement('video');video.id='cameraVideo';video.autoplay=true;video.playsInline=true;video.muted=true;video.srcObject=cameraStream;
+  msg.innerHTML='Point the camera at the barcode…';msg.appendChild(video);
+  const detector=new BarcodeDetector({formats:['code_128','ean_13','ean_8','upc_a','upc_e']});
+  const scan=async()=>{if(!cameraStream)return;try{const codes=await detector.detect(video);if(codes.length){const value=(codes[0].rawValue||'').trim();document.getElementById(target[1]).value=value;
+   if(mode==='out')addOut();else if(mode==='receive')addReceive();else if(mode==='return')addReturn();else if(mode==='supplierReturn')addSupplierReturn();else if(mode==='goLiveCompany')addGoLiveCompany();else if(mode==='goLiveCustomer')addGoLiveCustomer();else findCylinder();stopCameraScan();return}}
+   catch(e){}requestAnimationFrame(scan)};
+  video.onloadedmetadata=()=>scan();
+ }catch(e){msg.innerHTML='<span class="warning">Camera access was not available. Check browser camera permission, or use manual entry.</span>'}
+}
+function stopCameraScan(){if(cameraStream){cameraStream.getTracks().forEach(t=>t.stop());cameraStream=null}['outCameraMsg','receiveCameraMsg','returnCameraMsg','supplierReturnCameraMsg','goLiveCompanyCameraMsg','goLiveCustomerCameraMsg','findCameraMsg'].forEach(id=>{const x=document.getElementById(id);if(x)x.innerHTML=''})}
 document.addEventListener('click', function(e){
   const btn=e.target.closest && e.target.closest('.customer-action');
   if(!btn) return;
@@ -1352,8 +1378,8 @@ refresh();
    const method=String(options.method||"GET").toUpperCase();
    const isStagingMovement=path.startsWith("/functions/v1/cylinder-movement-staging");
    const isAllowedStagingRentalWrite=method==="POST" && (path.startsWith("/rest/v1/rental_adjustments") || path.startsWith("/rest/v1/rpc/set_customer_rental_rate"));
-   if(false && !["GET","HEAD","OPTIONS"].includes(method) && !isStagingMovement && !isAllowedStagingRentalWrite) {
-    throw new Error("TEST MODE: this change is not permitted from the staging screen.");
+   if(!["GET","HEAD","OPTIONS"].includes(method) && !isStagingMovement && !isAllowedStagingRentalWrite) {
+    throw new Error("STAGING SAFETY: this write is blocked from the staging screen.");
    }
    const headers=Object.assign({apikey:cfg.publishableKey,Authorization:"Bearer "+session.access_token,"Content-Type":"application/json"},options.headers||{});
    const r=await fetch(cfg.url+path,Object.assign({},options,{headers}));
@@ -1361,7 +1387,12 @@ refresh();
    if(!r.ok) throw new Error(d.error||d.message||("Supabase request failed: "+r.status));
    return d;
   },
-  async movement(payload){return this.request("/functions/v1/cylinder-movement",{method:"POST",body:JSON.stringify({...payload,dry_run:false})})},
+  async movement(payload){
+   const movementFunction=String(cfg.movementFunction||"cylinder-movement-staging");
+   const staging=window.CYLINDER_STAGING_MODE===true;
+   if(staging && movementFunction!=="cylinder-movement-staging") throw new Error("STAGING SAFETY: staging mode must use the cylinder-movement-staging function.");
+   return this.request("/functions/v1/"+movementFunction,{method:"POST",body:JSON.stringify({...payload,dry_run:staging})});
+  },
   async customers(){return this.request("/rest/v1/customers?select=id,name,telephone,delivery_address,email,account_number,contact_details,active&active=eq.true&order=name.asc")},
   async cylinderTypes(){return this.request("/rest/v1/cylinder_types?select=id,stock_code,gas_type,description,active&active=eq.true&order=stock_code.asc")},
   async allCylinders(){return this.request("/rest/v1/cylinders?select=id,barcode,cylinder_type_id,sto,status,customer_id,active,cylinder_condition&order=barcode.asc")},
@@ -1459,7 +1490,10 @@ refresh();
    document.getElementById('customerList').innerHTML=customers.map(c=>'<option value="'+esc(c.name)+'">').join('');
    const types=await CylinderLive.cylinderTypes();
    opts('receiveType',types.map(t=>t.stock_code+' — '+t.description));
-  }catch(e){}
+  }catch(e){
+   const status=document.getElementById('liveDataStatus');
+   if(status){status.style.borderLeftColor='#b91c1c';status.textContent='LIVE DATA ERROR — the main screen may be showing local/cached data, and customer/type lookups failed. Do not process stock movements. Details: '+(e?.message||String(e));}
+  }
  };
  window.addReceive=async function(){
   const bc=document.getElementById('receiveBarcode').value.trim();
