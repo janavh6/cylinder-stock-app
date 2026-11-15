@@ -1426,10 +1426,14 @@ refresh();
     throw new Error("Please sign in with the approved Google account before using the database.");
    }
    const method=String(options.method||"GET").toUpperCase();
-   const isStagingMovement=path.startsWith("/functions/v1/cylinder-movement-staging");
-   const isAllowedStagingRentalWrite=method==="POST" && (path.startsWith("/rest/v1/rental_adjustments") || path.startsWith("/rest/v1/rpc/set_customer_rental_rate"));
-   if(!["GET","HEAD","OPTIONS"].includes(method) && !isStagingMovement && !isAllowedStagingRentalWrite) {
-    throw new Error("STAGING SAFETY: this write is blocked from the staging screen.");
+   const staging=window.CYLINDER_STAGING_MODE===true;
+   const movementFunction=staging?"cylinder-movement-staging":"cylinder-movement";
+   const isMovementFunction=path.startsWith("/functions/v1/"+movementFunction);
+   const isAllowedRentalWrite=method==="POST" && (path.startsWith("/rest/v1/rental_adjustments") || path.startsWith("/rest/v1/rpc/set_customer_rental_rate"));
+   if(!["GET","HEAD","OPTIONS"].includes(method) && !isMovementFunction && !isAllowedRentalWrite) {
+    throw new Error(staging
+      ? "STAGING SAFETY: this write is blocked from the simulation screen."
+      : "PRODUCTION SAFETY: this write is blocked; use the approved movement workflow.");
    }
    const headers=Object.assign({apikey:cfg.publishableKey,Authorization:"Bearer "+session.access_token,"Content-Type":"application/json"},options.headers||{});
    const r=await fetch(cfg.url+path,Object.assign({},options,{headers}));
