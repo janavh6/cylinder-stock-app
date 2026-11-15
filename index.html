@@ -1861,22 +1861,35 @@ refresh();
 })();
 setInterval(() => {
   const table = document.getElementById('customerTable');
-  if (!table) return;
-  table.querySelectorAll('tr').forEach(tr => {
-    const nameEl = tr.querySelector('td b');
-    if (!nameEl) return;
-    const custName = nameEl.textContent.trim();
-    tr.querySelectorAll('button').forEach(btn => {
-      const label = btn.textContent.trim();
-      if (label === 'Edit' && !btn.dataset.fixed) {
-        btn.dataset.fixed = '1';
-        btn.onclick = () => openCustomerForm(custName);
-      } else if (label === 'Open' && !btn.dataset.fixed) {
-        btn.dataset.fixed = '1';
-        btn.onclick = () => openCustomerDetail(custName);
-      }
+  if (table) {
+    table.querySelectorAll('tr').forEach(tr => {
+      const nameEl = tr.querySelector('td b');
+      if (!nameEl) return;
+      const custName = nameEl.textContent.trim();
+      tr.querySelectorAll('button').forEach(btn => {
+        const label = btn.textContent.trim();
+        if (label === 'Edit' && !btn.dataset.fixed) {
+          btn.dataset.fixed = '1';
+          btn.onclick = () => openCustomerForm(custName);
+        } else if (label === 'Open' && !btn.dataset.fixed) {
+          btn.dataset.fixed = '1';
+          btn.onclick = () => openCustomerDetail(custName);
+        }
+      });
     });
-  });
+  }
+
+  const outSel = document.getElementById('outCustomerSearch');
+  if (outSel && outSel.options.length <= 1 && window.cylinderAuthClient && !outSel.dataset.loading) {
+    outSel.dataset.loading = '1';
+    window.cylinderAuthClient.from('customers').select('name').eq('active', true).order('name').then(({ data }) => {
+      if (data && data.length) {
+        outSel.innerHTML = '<option value="">-- Select a customer --</option>' +
+          data.map(c => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+      }
+      outSel.dataset.loading = '';
+    });
+  }
 }, 500);
 
 </script>
