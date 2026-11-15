@@ -1127,17 +1127,18 @@ async function rentalData(){
     fetchAllRentalAdjustmentAudit()
   ]);
   return {customers,cylinders,types,movements,adjustments,goLiveResets,goLiveBalances,rates,adjustmentAudit};
-}
 function calcCustomerRental(customerId, data, period){
   const typeMap=new Map(data.types.map(t=>[t.id,t]));
   const cylMap=new Map(data.cylinders.map(c=>[c.id,c]));
   const qty={};
   const reset=(data.goLiveResets||[]).filter(r=>r.reset_date<=period.endDate && r.status==='CONFIRMED').sort((a,b)=>b.reset_date.localeCompare(a.reset_date))[0];
-  if(!reset)return {qty,calculated:0,finalQty:0,adjustment:null,moves:[],needsOpeningBalance:true,negative:[],rate:null,rateDate:null};
-  const rateDate=reset.reset_date>period.startDate?reset.reset_date:period.startDate;
+  const effectiveStart=reset?reset.reset_date:'2026-10-01';
+  const rateDate=effectiveStart>period.startDate?effectiveStart:period.startDate;
   const rate=(data.rates||[]).filter(x=>x.customer_id===customerId && x.effective_from<=rateDate && (!x.effective_to||rateDate<x.effective_to)).sort((a,b)=>b.effective_from.localeCompare(a.effective_from))[0]||null;
-  (data.goLiveBalances||[]).filter(o=>o.reset_id===reset.id && o.customer_id===customerId).forEach(o=>{const g=o.gas_type||'Unknown type';qty[g]=(qty[g]||0)+Number(o.quantity||0)});
-  const resetStart=new Date(reset.reset_date+'T00:00:00');
+  if(reset){
+    (data.goLiveBalances||[]).filter(o=>o.reset_id===reset.id && o.customer_id===customerId).forEach(o=>{const g=o.gas_type||'Unknown type';qty[g]=(qty[g]||0)+Number(o.quantity||0)});
+  }
+  const resetStart=new Date(effectiveStart+'T00:00:00');
   const moves=data.movements.filter(m=>m.customer_id===customerId && new Date(m.movement_at)>=resetStart && new Date(m.movement_at)<period.end);
   moves.forEach(m=>{
     const cylinder=cylMap.get(m.cylinder_id); const type=cylinder?typeMap.get(cylinder.cylinder_type_id):null;
@@ -1181,8 +1182,6 @@ async function rentalCalc(){
   try{
     const period=rentalPeriod(), data=await rentalData();
     notice.innerHTML='<p class="warning"><b>PROVISIONAL CALCULATION ONLY.</b> This is a preview, not a finalised customer statement. The first go-live period may be shorter than a full month; its charging method must be confirmed before billing.</p>';
-    const hasGoLiveReset=(data.goLiveResets||[]).some(r=>r.status==='CONFIRMED' && r.reset_date<=period.endDate);
-    if(!hasGoLiveReset){result.innerHTML='<p class="warning"><b>Rental calculation is unavailable.</b><br>The test opening balances are excluded. Complete and confirm the new go-live stock take before calculating live customer rentals.</p>';return}
     const all=document.getElementById('rentalAll').checked;
     const wanted=all?data.customers:[];
     if(!all){const name=document.getElementById('rentalCustomerSearch').value.trim(); const c=data.customers.find(x=>x.name.toLowerCase()===name.toLowerCase()); if(!c){alert('Please select an active customer or choose all customers.');result.innerHTML='';return} wanted.push(c)}
