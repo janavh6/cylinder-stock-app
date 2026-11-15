@@ -806,12 +806,10 @@ async function completeSupplierReturn(){
    const batchNote='Return to Supplier'+(userNote?' — '+userNote:'')+(notes?' — '+notes:'');
    const result=await CylinderLive.movement({action:'SUPPLIER_RETURN',barcodes:items.map(x=>x.barcode),sto:stos[0]||null,note:batchNote});
    if(!result.ok)throw new Error(result.error||'Return to Supplier was not completed.');
-   if(window.CYLINDER_STAGING_MODE===true){
-     if(result.simulated!==true)throw new Error('STAGING SAFETY CHECK FAILED: the server did not confirm simulation. No local changes were made.');
-     msg.innerHTML='<p class="success"><b>Simulation Successful.</b></p><p>'+items.length+' cylinder(s) were accepted for Return to Supplier testing only. No stock or local cylinder records were changed. The queued items remain available for review.</p>';
-     return;
-   }
-   msg.innerHTML='<p class="warning">This workflow is currently available in staging only. No local records were changed.</p>';
+     supplierReturnSession=[];
+    if(typeof renderSupplierReturn==='function')renderSupplierReturn();
+    if(typeof refresh==='function')await refresh();
+    msg.innerHTML='<p class="success"><b>Return To Supplier Completed.</b> '+items.length+' cylinder(s) archived and updated in live stock.</p>';
  }catch(e){msg.innerHTML='<p class="warning"><b>Return To Supplier Was Not Completed.</b><br>No cylinder was changed in the app.<br>'+esc(e.message)+'</p>';}
 }
 
