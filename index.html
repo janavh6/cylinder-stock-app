@@ -39,7 +39,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
     <p id="authMessage" role="status" aria-live="polite">Checking sign-in…</p>
   </div>
 </div>
-<header><div class="wrap"><h1>Cylinder Control — Version 1</h1><div>STAGING — simulated movements only; no live stock changes</div><button id="googleSignOut" type="button" hidden style="margin-top:12px;background:#e3eaf1;color:#17202a">Sign out</button></div></header>
+<header><div class="wrap"><h1>Cylinder Control — Version 1</h1><div>PRODUCTION — live stock records; opening stock take required before movements</div><button id="googleSignOut" type="button" hidden style="margin-top:12px;background:#e3eaf1;color:#17202a">Sign out</button></div></header>
 <div id="liveDataStatus" class="card" role="status" aria-live="polite" style="margin:12px auto;max-width:1100px;border-left:5px solid #64748b">Live data status: waiting for connection check.</div>
 <datalist id="customerList"></datalist>
 <div class="wrap">
@@ -252,8 +252,8 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 </div>
 <hr>
 <div class="card">
-<h3>🔄 9 November 2026 — Go-Live Stock Take</h3>
-<p class="muted">This is the controlled reset point for the new live system. It does <b>not</b> delete previous history. You will scan the cylinders physically at your company and then scan the cylinders physically held by each customer.</p>
+<h3>🔄 16 November 2026 — Go-Live Stock Take</h3>
+<p class="muted">This is the controlled opening reset for the live system. It does <b>not</b> delete previous history. Complete the physical count for company stock and every customer before confirming. Live movements remain locked until this reset is confirmed.</p>
 <button class="primary" onclick="show('goLiveReset')">Open Go-Live Stock Take</button>
 </div>
 </div></section>
@@ -274,14 +274,14 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <section id="goLiveReset" class="page hidden">
 <div class="card">
 <button onclick="show('settings')">← Back to Settings</button>
-<h2>🔄 GO-LIVE STOCK TAKE — 9 NOVEMBER 2026</h2>
-<p><b>Official reset date:</b> 9 November 2026</p>
+<h2>🔄 GO-LIVE STOCK TAKE — 16 NOVEMBER 2026</h2>
+<p><b>Official reset date:</b> 16 November 2026</p>
 <p class="muted">Use this once, after physically checking the cylinders. Previous movements remain in the history. The reset establishes the new opening position for stock and Rental.</p>
 <div id="goLiveResetStatus"></div>
 
 <div class="card">
 <h3>1. 📦 Company Stock</h3>
-<p class="muted">Scan every cylinder physically in your warehouse on 9 November.</p>
+<p class="muted">Scan every cylinder physically in your warehouse on 16 November.</p>
 <input id="goLiveCompanyBarcode" placeholder="710311 + 8 digits" onkeydown="enterGoLiveCompany(event)">
 <button class="primary" onclick="addGoLiveCompany()">Add Company Cylinder</button>
 <button onclick="startCameraScan('goLiveCompany')">📷 SCAN WITH CAMERA</button>
@@ -291,7 +291,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 
 <div class="card">
 <h3>2. 👥 Customer Opening Stock</h3>
-<p class="muted">Select a customer, then scan every cylinder physically held by that customer on 9 November.</p>
+<p class="muted">Select a customer, then scan every cylinder physically held by that customer on 16 November.</p>
 <label>Customer<select id="goLiveCustomer"></select></label>
 <input id="goLiveCustomerBarcode" placeholder="710311 + 8 digits" onkeydown="enterGoLiveCustomer(event)">
 <button class="primary" onclick="addGoLiveCustomer()">Add Customer Cylinder</button>
@@ -311,7 +311,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <p class="muted">Before confirming, physically compare the totals with your stock count and customer count. This action is permanent for the 9 November reset date.</p>
 <div id="goLiveReview"></div>
 <label>Reset note (optional)<input id="goLiveNotes" placeholder="e.g. Physical stock take completed 9 November 2026"></label>
-<button class="primary" onclick="confirmGoLiveReset()">Confirm 9 November Go-Live Reset</button>
+<button class="primary" onclick="confirmGoLiveReset()">Confirm 16 November Go-Live Reset</button>
 </div>
 </div>
 </section>
@@ -356,11 +356,11 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* CYLINDER APP — LIVE SUPABASE CONFIGURATION */
-window.CYLINDER_STAGING_MODE = true;
+window.CYLINDER_STAGING_MODE = false;
 window.CYLINDER_SUPABASE = {
   url: "https://cfgbskcdhdupstlgdbwy.supabase.co",
   publishableKey: "sb_publishable_9FdVHMqjVYN5mHc4MlaJIQ_KAqVTuxH",
-  movementFunction: "cylinder-movement-staging",
+  movementFunction: "cylinder-movement",
   allowedEmail: "jana.vheerden6@gmail.com"
 };
 if (!window.supabase || !window.supabase.createClient) {
@@ -997,11 +997,33 @@ async function findCylinder(){
 let goLiveCompanySession=[],goLiveCustomerSession=[];
 function enterGoLiveCompany(e){if(e.key==='Enter'){e.preventDefault();addGoLiveCompany()}}
 function enterGoLiveCustomer(e){if(e.key==='Enter'){e.preventDefault();addGoLiveCustomer()}}
-async function initGoLiveReset(){  const status=document.getElementById('goLiveResetStatus');
-  document.querySelectorAll('#goLiveReset input,#goLiveReset select,#goLiveReset button').forEach(el=>{
-    if(el.getAttribute("onclick")!=="show('settings')")el.disabled=true;
-  });
-  status.innerHTML='<p class="warning"><b>Go-Live opening balances are being rebuilt.</b><br>Planned opening date: 9 November 2026. The reset is disabled until the final checks are complete. Your test customer opening balances will not be used for live rental billing. The reset will create a new opening snapshot; previous movement history will be retained, and existing active cylinders not included in the physical count will be marked NOT ACCOUNTED FOR for review.</p>';
+async function initGoLiveReset(){
+  const status=document.getElementById('goLiveResetStatus');
+  const customerSelect=document.getElementById('goLiveCustomer');
+  const unbarcoded=document.getElementById('goLiveUnbarcodedInputs');
+  if(!status||!customerSelect||!unbarcoded)return;
+  try{
+    const [customers,types,resets]=await Promise.all([
+      CylinderLive.customers(),
+      CylinderLive.cylinderTypes(),
+      CylinderLive.request('/rest/v1/go_live_resets?select=id,reset_date,status&reset_date=eq.2026-11-16')
+    ]);
+    customerSelect.innerHTML='<option value="">-- Select customer --</option>'+customers.filter(c=>c.active!==false).sort((a,b)=>a.name.localeCompare(b.name)).map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('');
+    unbarcoded.innerHTML=types.map(t=>'<label>'+esc(t.stock_code)+' — '+esc(t.description)+'<input class="goLiveUnbarcoded" type="number" min="0" step="1" value="0" data-type-id="'+esc(t.id)+'" data-code="'+esc(t.stock_code)+'"></label>').join('');
+    const existing=resets.find(r=>r.reset_date==='2026-11-16'&&r.status==='CONFIRMED');
+    const controls=document.querySelectorAll('#goLiveReset input,#goLiveReset select,#goLiveReset button');
+    if(existing){
+      controls.forEach(el=>{if(el.getAttribute('onclick')!=="show('settings')")el.disabled=true;});
+      status.innerHTML='<p class="success"><b>Opening reset already confirmed for 16 November 2026.</b><br>Reset ID: '+esc(existing.id)+'. Do not run it again.</p>';
+      return;
+    }
+    controls.forEach(el=>{if(el.getAttribute('onclick')!=="show('settings')")el.disabled=false;});
+    status.innerHTML='<p class="warning"><b>Opening stock take ready — not yet confirmed.</b><br>Reset date: 16 November 2026. Scan every physical company cylinder and every cylinder held by each customer. Previous movement history will be retained. Any active cylinder omitted from the count will be marked NOT ACCOUNTED FOR. Live movements are locked until the reset is completed.</p>';
+    renderGoLiveReset();
+  }catch(e){
+    document.querySelectorAll('#goLiveReset input,#goLiveReset select,#goLiveReset button').forEach(el=>{if(el.getAttribute('onclick')!=="show('settings')")el.disabled=true;});
+    status.innerHTML='<p class="warning"><b>Could not prepare the opening stock take.</b><br>'+esc(e.message)+'. No reset was performed.</p>';
+  }
 }
 async function addGoLiveCompany(){
   const input=document.getElementById('goLiveCompanyBarcode'),bc=input.value.trim();
@@ -1041,7 +1063,35 @@ function renderGoLiveReset(){
   review.innerHTML=`<p><b>Company barcoded:</b> ${goLiveCompanySession.length}</p><p><b>Customer barcoded:</b> ${goLiveCustomerSession.length}</p><p><b>Unbarcoded older company stock:</b> ${ubTotal}</p><p><b>Total physically accounted for:</b> ${goLiveCompanySession.length+goLiveCustomerSession.length+ubTotal}</p>`;
 }
 async function confirmGoLiveReset(){
-  alert('The Go-Live reset is temporarily disabled while the new verified opening-balance process is being prepared for 9 November 2026.');
+  const company=[...goLiveCompanySession];
+  const customer=[...goLiveCustomerSession].map(x=>({barcode:x.barcode,customer_id:x.customerId}));
+  const unbarcoded=goLiveUnbarcoded().map(x=>({cylinder_type_id:x.cylinder_type_id,unbarcoded_quantity:x.unbarcoded_quantity}));
+  const total=company.length+customer.length+unbarcoded.reduce((n,x)=>n+x.unbarcoded_quantity,0);
+  if(!total){alert('No cylinders have been counted. Nothing will be reset.');return;}
+  const summary='Company barcodes: '+company.length+'\nCustomer barcodes: '+customer.length+'\nUnbarcoded company quantity: '+unbarcoded.reduce((n,x)=>n+x.unbarcoded_quantity,0)+'\n\nThis is a permanent opening-balance reset. Previous history is retained, but omitted active cylinders become NOT ACCOUNTED FOR. Continue only after checking every physical count.';
+  if(!confirm(summary))return;
+  const phrase=prompt('Type exactly: CONFIRM GO-LIVE RESET 2026-11-16');
+  if(phrase!=='CONFIRM GO-LIVE RESET 2026-11-16'){alert('Confirmation did not match. No reset was performed.');return;}
+  const status=document.getElementById('goLiveResetStatus');
+  status.innerHTML='<p class="muted">Submitting the opening stock take securely…</p>';
+  try{
+    const result=await CylinderLive.movement({
+      action:'GO_LIVE_RESET',
+      reset_date:'2026-11-16',
+      confirmation:phrase,
+      company_barcodes:company.map(x=>x.barcode),
+      customer_items:customer,
+      unbarcoded_company:unbarcoded,
+      notes:document.getElementById('goLiveNotes').value.trim()||'Physical opening stock take — 16 November 2026'
+    });
+    if(!result||result.ok!==true)throw new Error(result?.error||'The server did not confirm the opening reset.');
+    goLiveCompanySession=[];goLiveCustomerSession=[];
+    status.innerHTML='<p class="success"><b>Opening stock take confirmed.</b><br>Company cylinders: '+esc(result.company_barcodes)+'; customer cylinders: '+esc(result.customer_barcodes)+'; unbarcoded company quantity: '+esc(result.unbarcoded_company)+'; not accounted for: '+esc(result.not_accounted_for)+'.</p>';
+    await refresh();
+    await initGoLiveReset();
+  }catch(e){
+    status.innerHTML='<p class="warning"><b>Opening stock take was not completed.</b><br>'+esc(e.message)+'. No reset was confirmed.</p>';
+  }
 }
 
 function rentalDateDefaults(){
