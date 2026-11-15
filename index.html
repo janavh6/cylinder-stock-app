@@ -1887,6 +1887,18 @@ setInterval(() => {
           data.map(c => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
       }
       outSel.dataset.loading = '';
+        const rentSel = document.getElementById('rentalCustomerSearch');
+  if (rentSel && rentSel.options.length <= 1 && window.cylinderAuthClient && !rentSel.dataset.loading) {
+    rentSel.dataset.loading = '1';
+    window.cylinderAuthClient.from('customers').select('name').eq('active', true).order('name').then(({ data }) => {
+      if (data && data.length) {
+        rentSel.innerHTML = '<option value="">-- Select a customer (or check Show all) --</option>' +
+          data.map(c => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+      }
+      rentSel.dataset.loading = '';
+    });
+  }
+
     });
   }
 }, 500);
