@@ -308,9 +308,9 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 
 <div class="card">
 <h3>4. Review & Confirm</h3>
-<p class="muted">Before confirming, physically compare the totals with your stock count and customer count. This action is permanent for the 9 November reset date.</p>
+<p class="muted">Before confirming, physically compare the totals with your stock count and customer count. This action is permanent for the 16 November 2026 reset date.</p>
 <div id="goLiveReview"></div>
-<label>Reset note (optional)<input id="goLiveNotes" placeholder="e.g. Physical stock take completed 9 November 2026"></label>
+<label>Reset note (optional)<input id="goLiveNotes" placeholder="e.g. Physical stock take completed 16 November 2026"></label>
 <button class="primary" onclick="confirmGoLiveReset()">Confirm 16 November Go-Live Reset</button>
 </div>
 </div>
@@ -1009,7 +1009,7 @@ async function initGoLiveReset(){
       CylinderLive.request('/rest/v1/go_live_resets?select=id,reset_date,status&reset_date=eq.2026-11-16')
     ]);
     customerSelect.innerHTML='<option value="">-- Select customer --</option>'+customers.filter(c=>c.active!==false).sort((a,b)=>a.name.localeCompare(b.name)).map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('');
-    unbarcoded.innerHTML=types.map(t=>'<label>'+esc(t.stock_code)+' — '+esc(t.description)+'<input class="goLiveUnbarcoded" type="number" min="0" step="1" value="0" data-type-id="'+esc(t.id)+'" data-code="'+esc(t.stock_code)+'"></label>').join('');
+    unbarcoded.innerHTML=types.map(t=>'<label>'+esc(t.stock_code)+' — '+esc(t.description)+'<input class="goLiveUnbarcoded" type="number" min="0" step="1" value="0" data-type-id="'+esc(t.id)+'" data-code="'+esc(t.stock_code)+'" oninput="renderGoLiveReset()"></label>').join('');
     const existing=resets.find(r=>r.reset_date==='2026-11-16'&&r.status==='CONFIRMED');
     const controls=document.querySelectorAll('#goLiveReset input,#goLiveReset select,#goLiveReset button');
     if(existing){
