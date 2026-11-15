@@ -447,7 +447,6 @@ async function refresh(){
       document.getElementById('custCount').textContent=customers.filter(x=>x.active!==false).length;
 document.getElementById('outCustomerSearch').innerHTML='<option value="">-- Select a customer --</option>'+customers.filter(x=>x.active!==false).map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
 
-
       const q=(document.getElementById('customerSearch')?.value||'').trim().toLowerCase();
       const typeMap=new Map(types.map(t=>[t.id,t]));
 
@@ -812,7 +811,6 @@ async function completeSupplierReturn(){
     msg.innerHTML='<p class="success"><b>Return To Supplier Completed.</b> '+items.length+' cylinder(s) archived and updated in live stock.</p>';
  }catch(e){msg.innerHTML='<p class="warning"><b>Return To Supplier Was Not Completed.</b><br>No cylinder was changed in the app.<br>'+esc(e.message)+'</p>';}
 }
-
 
 /* CSV bulk-import validation. Files are previewed only; confirmation queues rows
    for the existing atomic movement workflow. XLSX is deliberately not enabled. */
