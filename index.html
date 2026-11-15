@@ -39,7 +39,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
     <p id="authMessage" role="status" aria-live="polite">Checking sign-in…</p>
   </div>
 </div>
-<header><div class="wrap"><h1>Cylinder Control — Version 1</h1><div>PRODUCTION — live stock records; opening stock take required before movements</div><button id="googleSignOut" type="button" hidden style="margin-top:12px;background:#e3eaf1;color:#17202a">Sign out</button></div></header>
+<header><div class="wrap"><h1>Cylinder Control — Version 1</h1><div>PRODUCTION — daily cylinder tracking active from 16 November 2026</div><button id="googleSignOut" type="button" hidden style="margin-top:12px;background:#e3eaf1;color:#17202a">Sign out</button></div></header>
 <div id="liveDataStatus" class="card" role="status" aria-live="polite" style="margin:12px auto;max-width:1100px;border-left:5px solid #64748b">Live data status: waiting for connection check.</div>
 <datalist id="customerList"></datalist>
 <div class="wrap">
@@ -65,7 +65,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 </div>
 <div class="card"><h2>Quick actions</h2><button class="primary" onclick="show('out')">Scan Out</button>
 <button onclick="show('return')">Scan Return</button><button onclick="show('find')">Find Cylinder</button><button onclick="show('reports')">Reports</button></div>
-<div class="card"><b>V1 note:</b> Camera barcode scanning is the next integration step. This prototype uses barcode entry so the complete workflow can be tested immediately.</div>
+
 </section>
 
 <section id="out" class="page hidden">
@@ -346,6 +346,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <label>Report date<input id="dailyReportDate" type="date"></label>
 <button class="primary" onclick="loadDailyReport()">Load Report</button>
 <button onclick="printDailyReport()">🖨 PRINT DAILY REPORT</button>
+<label style="display:inline-flex;align-items:center;gap:7px;margin-left:12px"><input id="dailyIncludeBarcodes" type="checkbox" style="width:auto;margin:0"> Include compact barcode images</label>
 </div>
 <div id="dailyReportNotice"></div>
 <div id="dailyReportResult"><p class="muted">Choose a date and load the report.</p></div>
@@ -354,6 +355,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script>
 /* CYLINDER APP — LIVE SUPABASE CONFIGURATION */
 window.CYLINDER_STAGING_MODE = false;
@@ -1343,10 +1345,10 @@ async function loadDailyReport(){
         for(let i=0;i<n;i++){
           const out=g.outs[i];
           const ret=g.returns[i];
-          const returnText=ret?dailyEscape(ret.barcode):'<span class="daily-short">Not Returned</span>';
+          const returnText=ret?dailyBarcodeCell(ret.barcode):'<span class="daily-short">Not Returned</span>';
           body+='<tr>'+
             '<td class="daily-customer">'+dailyEscape(customer)+'</td>'+
-            '<td>'+dailyEscape(out?out.barcode:'')+'</td>'+
+            '<td>'+(out?dailyBarcodeCell(out.barcode):'')+'</td>'+
             '<td>'+returnText+'</td>'+
             '</tr>';
         }
@@ -1357,7 +1359,7 @@ async function loadDailyReport(){
     });
 
     const supplierRows=rows.filter(r=>['SUPPLIER IN','SUPPLIER OUT'].includes(dailyActionClass(r.movement_type))).map(r=>
-      '<tr><td>'+dailyEscape(dailyActionLabel(r.movement_type))+'</td><td>'+dailyEscape(r.barcode)+'</td><td>'+dailyEscape(r.gas_type)+'</td><td>'+dailyEscape(r.sto||'')+'</td></tr>'
+      '<tr><td>'+dailyEscape(dailyActionLabel(r.movement_type))+'</td><td>'+dailyBarcodeCell(r.barcode)+'</td><td>'+dailyEscape(r.gas_type)+'</td><td>'+dailyEscape(r.sto||'')+'</td></tr>'
     ).join('');
     const supplierTable=supplierRows?'<div class="daily-gas-block"><h3>Supplier Movements</h3><table class="daily-movement-table"><tr><th>Movement</th><th>Barcode</th><th>Gas</th><th>STO</th></tr>'+supplierRows+'</table></div>':'';
 
@@ -1368,11 +1370,16 @@ async function loadDailyReport(){
     const customerTable='<div class="card"><h3>Customer deliveries</h3><table><tr><th>Customer</th><th>Cylinders OUT</th><th>Cylinders RETURN</th><th>Net Out</th></tr>'+(customerRows||'<tr><td colspan="4">No customer movement recorded.</td></tr>')+'</table></div>';
 
     const details=gasCustomerSections+supplierTable;
-    result.innerHTML='<div id="dailyReportPrintArea" class="daily-report-print"><style>.daily-report-print{font-size:13px}.daily-report-print .daily-gas-block{margin:14px 0}.daily-report-print .daily-gas-block h3{margin:8px 0 4px;border-bottom:2px solid #222;padding-bottom:4px}.daily-report-print .daily-movement-table{width:100%;border-collapse:collapse;table-layout:fixed}.daily-report-print .daily-movement-table th,.daily-report-print .daily-movement-table td{border:1px solid #444;padding:5px 6px;text-align:left;vertical-align:middle}.daily-report-print .daily-movement-table th{font-weight:700}.daily-report-print .daily-movement-table th:nth-child(1),.daily-report-print .daily-movement-table td:nth-child(1){width:30%}.daily-report-print .daily-movement-table th:nth-child(2),.daily-report-print .daily-movement-table td:nth-child(2){width:35%}.daily-report-print .daily-movement-table th:nth-child(3),.daily-report-print .daily-movement-table td:nth-child(3){width:35%}.daily-report-print .daily-customer{font-weight:700}.daily-report-print .daily-short{font-weight:700}.daily-report-print .card{margin:8px 0}.daily-report-print .big{font-size:22px;font-weight:700}</style><h2>Daily Cylinder Movement — '+dailyEscape(dateLabel(date))+'</h2>'+summary+details+customerTable+'</div>';
+    result.innerHTML='<div id="dailyReportPrintArea" class="daily-report-print"><style>.daily-report-print{font-size:13px}.daily-report-print .daily-gas-block{margin:14px 0}.daily-report-print .daily-gas-block h3{margin:8px 0 4px;border-bottom:2px solid #222;padding-bottom:4px}.daily-report-print .daily-movement-table{width:100%;border-collapse:collapse;table-layout:fixed}.daily-report-print .daily-movement-table th,.daily-report-print .daily-movement-table td{border:1px solid #444;padding:5px 6px;text-align:left;vertical-align:middle}.daily-report-print .daily-movement-table th{font-weight:700}.daily-report-print .daily-movement-table th:nth-child(1),.daily-report-print .daily-movement-table td:nth-child(1){width:30%}.daily-report-print .daily-movement-table th:nth-child(2),.daily-report-print .daily-movement-table td:nth-child(2){width:35%}.daily-report-print .daily-movement-table th:nth-child(3),.daily-report-print .daily-movement-table td:nth-child(3){width:35%}.daily-report-print .daily-customer{font-weight:700}.daily-report-print .daily-short{font-weight:700}.daily-report-print .daily-barcode-cell{display:flex;align-items:center;justify-content:space-between;gap:5px;white-space:nowrap;font-size:10px}.daily-report-print .daily-barcode-image{display:inline-block;width:118px;height:27px;max-width:52%;flex:0 1 auto;overflow:visible}.daily-report-print td{overflow:hidden}.daily-report-print .card{margin:8px 0}.daily-report-print .big{font-size:22px;font-weight:700}</style><h2>Daily Cylinder Movement — '+dailyEscape(dateLabel(date))+'</h2>'+summary+details+customerTable+'</div>';
     window.lastDailyReport={date,rows};
   }catch(e){result.innerHTML='<p class="warning">Could not load the daily report.<br>'+dailyEscape(e.message)+'</p>'}
 }
-function printDailyReport(){if(!window.lastDailyReport||!document.getElementById('dailyReportPrintArea')?.innerHTML.trim()){alert('Please load the daily report first.');return}const w=window.open('','_blank','width=1200,height=850');if(!w){alert('Please allow pop-ups for printing.');return}const body=document.getElementById('dailyReportPrintArea').innerHTML;w.document.write('<!doctype html><html><head><title>Daily Cylinder Movement — '+esc(window.lastDailyReport.date)+'</title><style>@page{size:A4 landscape;margin:10mm}body{font-family:Arial,sans-serif;padding:0;font-size:11px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:4px 5px;text-align:left;vertical-align:middle}.card{margin:6px 0}.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.grid .card{border:1px solid #444;padding:5px}.muted{color:#555}.daily-gas-block{margin:9px 0;break-inside:avoid}.daily-gas-block h3{margin:5px 0 3px;border-bottom:2px solid #222;padding-bottom:3px}.daily-movement-table{table-layout:fixed}.daily-movement-table th:nth-child(1),.daily-movement-table td:nth-child(1){width:30%}.daily-movement-table th:nth-child(2),.daily-movement-table td:nth-child(2){width:35%}.daily-movement-table th:nth-child(3),.daily-movement-table td:nth-child(3){width:35%}.daily-customer{font-weight:700}.daily-short{font-weight:700}</style></head><body>'+body+'</body></html>');w.document.close();w.focus();w.print()}
+function dailyBarcodeSvg(value){
+  if(!document.getElementById('dailyIncludeBarcodes')?.checked||!window.JsBarcode||!value||value==='—')return '';
+  try{const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');window.JsBarcode(svg,String(value),{format:'CODE128',displayValue:false,height:24,width:1,margin:0});svg.setAttribute('class','daily-barcode-image');svg.setAttribute('aria-label','Barcode '+String(value));return svg.outerHTML;}catch(e){return ''}
+}
+function dailyBarcodeCell(value){const v=String(value||'—');const svg=dailyBarcodeSvg(v);return '<span class="daily-barcode-cell"><span>'+dailyEscape(v)+'</span>'+svg+'</span>'}
+function printDailyReport(){if(!window.lastDailyReport||!document.getElementById('dailyReportPrintArea')?.innerHTML.trim()){alert('Please load the daily report first.');return}const w=window.open('','_blank','width=1200,height=850');if(!w){alert('Please allow pop-ups for printing.');return}const body=document.getElementById('dailyReportPrintArea').innerHTML;w.document.write('<!doctype html><html><head><title>Daily Cylinder Movement — '+esc(window.lastDailyReport.date)+'</title><style>@page{size:A4 landscape;margin:10mm}body{font-family:Arial,sans-serif;padding:0;font-size:11px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:4px 5px;text-align:left;vertical-align:middle}.card{margin:6px 0}.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}.grid .card{border:1px solid #444;padding:5px}.muted{color:#555}.daily-gas-block{margin:9px 0;break-inside:avoid}.daily-gas-block h3{margin:5px 0 3px;border-bottom:2px solid #222;padding-bottom:3px}.daily-movement-table{table-layout:fixed}.daily-movement-table th:nth-child(1),.daily-movement-table td:nth-child(1){width:30%}.daily-movement-table th:nth-child(2),.daily-movement-table td:nth-child(2){width:35%}.daily-movement-table th:nth-child(3),.daily-movement-table td:nth-child(3){width:35%}.daily-customer{font-weight:700}.daily-short{font-weight:700}.daily-barcode-cell{display:flex;align-items:center;justify-content:space-between;gap:5px;white-space:nowrap;font-size:10px}.daily-barcode-image{display:inline-block;width:118px;height:27px;max-width:52%;flex:0 1 auto;overflow:visible}td{overflow:hidden}</style></head><body>'+body+'</body></html>');w.document.close();w.focus();w.print()}
 
 function printWindow(title,body){const w=window.open('','_blank','width=1000,height=800');if(!w){alert('Please allow pop-ups for printing.');return}w.document.write(`<!doctype html><html><head><title>${esc(title)}</title><style>body{font-family:Arial;padding:30px}table{width:100%;border-collapse:collapse}th,td{padding:8px;border-bottom:1px solid #ccc;text-align:left}.muted{color:#666}.badge{display:inline-block;margin-right:8px}</style></head><body><h1>${esc(title)}</h1>${body}</body></html>`);w.document.close();w.focus();w.print()}
 function printCustomers(){printWindow('Customer List',document.getElementById('customerTable').innerHTML)}
