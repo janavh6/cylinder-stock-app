@@ -326,7 +326,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <p class="muted">Each customer has an individual monthly rate. Manage customer rates under Settings → Customer Monthly Rental Rates.</p>
 </div>
 <div class="row">
-<label>Customer<input id="rentalCustomerSearch" list="customerList" placeholder="Start typing customer name..."></label>
+<label>Customer<select id="rentalCustomerSearch"><option value="">-- Select a customer (or check Show all) --</option></select></label>
 <label style="display:flex;align-items:center;gap:8px;padding-bottom:8px"><input style="width:auto;margin:0" type="checkbox" id="rentalAll" onchange="toggleRentalSelection()"> Show all customers on one page</label>
 </div>
 <div class="row">
