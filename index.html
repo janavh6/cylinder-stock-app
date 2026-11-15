@@ -274,14 +274,14 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <section id="goLiveReset" class="page hidden">
 <div class="card">
 <button onclick="show('settings')">← Back to Settings</button>
-<h2>🔄 GO-LIVE STOCK TAKE — 16 NOVEMBER 2026</h2>
-<p><b>Official reset date:</b> 16 November 2026</p>
-<p class="muted">Use this once, after physically checking the cylinders. Previous movements remain in the history. The reset establishes the new opening position for stock and Rental.</p>
+<h2>🔄 START DAILY CYLINDER TRACKING — 16 NOVEMBER 2026</h2>
+<p><b>Opening position:</b> ZERO cylinders</p>
+<p class="muted">This is a personal daily movement tracker, not a company-wide stocktake. Leave all barcode and unbarcoded quantities at zero. From 16 November, only cylinders newly received by you from the supplier will be added. Existing cylinder records will be excluded from the new tracking baseline; their historical movement records will remain preserved. Rental calculations remain available and will calculate from the new tracking start date.</p>
 <div id="goLiveResetStatus"></div>
 
 <div class="card">
-<h3>1. 📦 Company Stock</h3>
-<p class="muted">Scan every cylinder physically in your warehouse on 16 November.</p>
+<h3>1. Company opening stock — leave empty</h3>
+<p class="muted">No existing company stock is being loaded into this new tracking period. Do not scan old cylinders here.</p>
 <input id="goLiveCompanyBarcode" placeholder="710311 + 8 digits" onkeydown="enterGoLiveCompany(event)">
 <button class="primary" onclick="addGoLiveCompany()">Add Company Cylinder</button>
 <button onclick="startCameraScan('goLiveCompany')">📷 SCAN WITH CAMERA</button>
@@ -290,8 +290,8 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 </div>
 
 <div class="card">
-<h3>2. 👥 Customer Opening Stock</h3>
-<p class="muted">Select a customer, then scan every cylinder physically held by that customer on 16 November.</p>
+<h3>2. Customer opening stock — leave empty</h3>
+<p class="muted">No existing customer-held cylinders are being loaded into this new tracking period. Do not scan old customer cylinders here.</p>
 <label>Customer<select id="goLiveCustomer"></select></label>
 <input id="goLiveCustomerBarcode" placeholder="710311 + 8 digits" onkeydown="enterGoLiveCustomer(event)">
 <button class="primary" onclick="addGoLiveCustomer()">Add Customer Cylinder</button>
@@ -301,17 +301,17 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 </div>
 
 <div class="card">
-<h3>3. 🧮 Unbarcoded Older Stock</h3>
-<p class="muted">For older cylinders that are physically in your company but still have no barcode. Enter the quantity by cylinder type. These are kept separate from barcode stock.</p>
+<h3>3. Unbarcoded opening stock — leave all quantities at zero</h3>
+<p class="muted">Existing unbarcoded company stock is not part of this new tracking period.</p>
 <div id="goLiveUnbarcodedInputs"></div>
 </div>
 
 <div class="card">
-<h3>4. Review & Confirm</h3>
-<p class="muted">Before confirming, physically compare the totals with your stock count and customer count. This action is permanent for the 16 November 2026 reset date.</p>
+<h3>4. Confirm zero opening stock</h3>
+<p class="muted">This establishes a zero opening balance for your personal tracker. Existing cylinder records are excluded from the new operational baseline, while their old movement history is retained. This action is permanent for 16 November 2026.</p>
 <div id="goLiveReview"></div>
-<label>Reset note (optional)<input id="goLiveNotes" placeholder="e.g. Physical stock take completed 16 November 2026"></label>
-<button class="primary" onclick="confirmGoLiveReset()">Confirm 16 November Go-Live Reset</button>
+<label>Reset note (optional)<input id="goLiveNotes" placeholder="e.g. Personal daily tracking starts — zero opening stock"></label>
+<button class="primary" onclick="confirmGoLiveReset()">Confirm Zero Opening Stock — 16 November</button>
 </div>
 </div>
 </section>
@@ -1067,8 +1067,7 @@ async function confirmGoLiveReset(){
   const customer=[...goLiveCustomerSession].map(x=>({barcode:x.barcode,customer_id:x.customerId}));
   const unbarcoded=goLiveUnbarcoded().map(x=>({cylinder_type_id:x.cylinder_type_id,unbarcoded_quantity:x.unbarcoded_quantity}));
   const total=company.length+customer.length+unbarcoded.reduce((n,x)=>n+x.unbarcoded_quantity,0);
-  if(!total){alert('No cylinders have been counted. Nothing will be reset.');return;}
-  const summary='Company barcodes: '+company.length+'\nCustomer barcodes: '+customer.length+'\nUnbarcoded company quantity: '+unbarcoded.reduce((n,x)=>n+x.unbarcoded_quantity,0)+'\n\nThis is a permanent opening-balance reset. Previous history is retained, but omitted active cylinders become NOT ACCOUNTED FOR. Continue only after checking every physical count.';
+  const summary='Company opening barcodes: '+company.length+'\nCustomer opening barcodes: '+customer.length+'\nUnbarcoded opening quantity: '+unbarcoded.reduce((n,x)=>n+x.unbarcoded_quantity,0)+'\n\nYou have chosen ZERO opening stock. Existing cylinders will be excluded from the new tracking baseline (marked NOT ACCOUNTED FOR); their historical movement records remain preserved. From 16 November, track only cylinders newly received from the supplier. This is permanent. Continue?';
   if(!confirm(summary))return;
   const phrase=prompt('Type exactly: CONFIRM GO-LIVE RESET 2026-11-16');
   if(phrase!=='CONFIRM GO-LIVE RESET 2026-11-16'){alert('Confirmation did not match. No reset was performed.');return;}
@@ -1082,7 +1081,7 @@ async function confirmGoLiveReset(){
       company_barcodes:company.map(x=>x.barcode),
       customer_items:customer,
       unbarcoded_company:unbarcoded,
-      notes:document.getElementById('goLiveNotes').value.trim()||'Physical opening stock take — 16 November 2026'
+      notes:document.getElementById('goLiveNotes').value.trim()||'Personal daily tracking starts — zero opening stock, 16 November 2026'
     });
     if(!result||result.ok!==true)throw new Error(result?.error||'The server did not confirm the opening reset.');
     goLiveCompanySession=[];goLiveCustomerSession=[];
