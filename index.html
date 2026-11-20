@@ -1562,8 +1562,8 @@ refresh();
   const selected=document.getElementById('receiveType').value;
   const code=selected.split(' — ')[0];
   if(!bc||!code)return;
-  if(!validBarcode(bc)){alert('Barcode is not valid. It must start with 710311 and contain 8 digits after it.');return}
-  if(receiveSession.some(x=>x.barcode===bc)){alert('This barcode is already queued for receiving.');return}
+  if(!validBarcode(bc)){playCylinderSound('error');alert('Barcode is not valid. It must start with 710311 and contain 8 digits after it.');return}
+  if(receiveSession.some(x=>x.barcode===bc)){playCylinderSound('error');alert('This barcode is already queued for receiving.');return}
   try{
    const types=await CylinderLive.cylinderTypes();
    const t=types.find(x=>x.stock_code===code);
@@ -1571,8 +1571,8 @@ refresh();
    const existing=await CylinderLive.cylindersByBarcode([bc]);
    if(existing.length && !(['WITH_SUPPLIER','ARCHIVED'].includes(existing[0].status)))throw new Error('This barcode is already registered and is not archived with the supplier.');
    receiveSession.push({barcode:bc,code:t.stock_code,gas:t.gas_type,description:t.description});
-   document.getElementById('receiveBarcode').value='';renderReceive();
-  }catch(e){alert('Could not queue this cylinder.\\n'+e.message)}
+   document.getElementById('receiveBarcode').value='';renderReceive();playCylinderSound('receiveSuccess');
+  }catch(e){playCylinderSound('error');alert('Could not queue this cylinder.\\n'+e.message)}
  };
 })();
 /* V6 LIVE SCAN OUT — database path only; approved UI remains unchanged. */
