@@ -1360,10 +1360,8 @@ async function loadDailyReport(){
         '<table class="daily-movement-table"><tr><th>Customer</th><th>Scan Out</th><th>Return</th></tr>'+body+'</table></div>';
     });
 
-    const supplierRows=rows.filter(r=>['SUPPLIER IN','SUPPLIER OUT'].includes(dailyActionClass(r.movement_type))).map(r=>
-      '<tr><td>'+dailyEscape(dailyActionLabel(r.movement_type))+'</td><td>'+dailyBarcodeCell(r.barcode)+'</td><td>'+dailyEscape(r.gas_type)+'</td><td>'+dailyEscape(r.sto||'')+'</td></tr>'
-    ).join('');
-    const supplierTable=supplierRows?'<div class="daily-gas-block"><h3>Supplier Movements</h3><table class="daily-movement-table"><tr><th>Movement</th><th>Barcode</th><th>Gas</th><th>STO</th></tr>'+supplierRows+'</table></div>':'';
+    // Supplier movement barcodes are omitted from the detail section; totals remain in the report summary.
+    const supplierTable='';
 
     const customerCounts={};rows.filter(r=>dailyActionClass(r.movement_type)==='OUT').forEach(r=>{customerCounts[r.customer_name]=(customerCounts[r.customer_name]||0)+1});
     const customerReturns={};rows.filter(r=>dailyActionClass(r.movement_type)==='RETURN').forEach(r=>{customerReturns[r.customer_name]=(customerReturns[r.customer_name]||0)+1});
