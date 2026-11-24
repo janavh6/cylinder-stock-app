@@ -1598,7 +1598,7 @@ refresh();
    try{const types=await CylinderLive.cylinderTypes();const t=types.find(x=>x.id===cylinder.cylinder_type_id);if(t){gas=t.gas_type||t.stock_code||'';type=t.description||t.stock_code||''}}catch(_){}
    const inv=document.getElementById('outInvoice').value.trim()||'';
    outSession.push({barcode:bc,gas,type,customer:customer.name,customerId:customer.id,invoice:inv,sto:cylinder.sto||''});
-   document.getElementById('outBarcode').value=''; renderOut();
+   document.getElementById('outBarcode').value=''; renderOut(); playCylinderSound('outSuccess');
   }catch(e){playCylinderSound('error');alert('Could not check the live stock database.\n'+e.message)}
  };
  window.completeOut=async function(){
